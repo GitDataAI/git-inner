@@ -1,0 +1,30 @@
+[package]
+name = "git-inner"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+sha1 = { version = "0.10", features = ["oid"] }
+sha2 = { version = "0.10", features = ["oid"] }
+serde = { version = "1", features = ["derive"] }
+hex = { version = "0.4", features = [] }
+bytes = { version = "1", features = ["serde"] }
+chrono = "0.4.41"
+bstr = "1.12.0"
+memchr = { version = "2.7.5", features = [] }
+encoding_rs = { version = "0.8.35", features = [] }
+bincode = { version = "2.0.0-rc.3", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+uuid = { version = "1.18.0", features = ["v4"] }
+async-trait = "0.1"
+tokio-stream = { version = "0.1.17", features = ["full"] }
+async-stream = { version = "0.3.6", features = [] }
+flate2 = "1.1.2"
+
+
+actix-web = { version = "4.11.0", features = [] }
+tower = { version = "0.5.2", features = ["full"] }
+tracing = { version = "0.1.41", features = [] }
+tracing-subscriber = { version = "0.3.19", features = [] }
+regex = { version = "1", features = [] }
+rusqlite = { version = "0.37.0", features = ["uuid","bundled-full"] }
