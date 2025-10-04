@@ -25,6 +25,9 @@ flate2 = "1.1.2"
 actix-web = { version = "4.11.0", features = [] }
 tower = { version = "0.5.2", features = ["full"] }
 tracing = { version = "0.1.41", features = [] }
-tracing-subscriber = { version = "0.3.19", features = [] }
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 regex = { version = "1", features = [] }
 rusqlite = { version = "0.37.0", features = ["uuid","bundled-full"] }
+mongodb = { version = "3", features = [] }
+object_store = { version = "0.12.3", features = ["cloud"] }
+futures-util = "0.3.31"
