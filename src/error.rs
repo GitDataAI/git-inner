@@ -1,6 +1,7 @@
-use actix_web::error::PayloadError;
+use crate::sha::HashValue;
+use mongodb::bson;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum GitInnerError {
     TimeError(String),
     InvalidSignatureType(String),
@@ -20,4 +21,25 @@ pub enum GitInnerError {
     SqliteError(String),
     HashVersionError,
     Payload(String),
+    IoError(String),
+    BJSONERROR(bson::ser::Error),
+    MongodbError(String),
+    ObjectNotFound(HashValue),
+    ObjectStoreError(String),
+    UuidError,
+    BaseObjectNotFound(Vec<u8>),
+    InvalidDelta,
+    MissingAuthor,
+    MissingCommitter,
+    MissingField(&'static str),
+    InvalidHash,
+    MissingBaseObject,
+    DeltaInvalidInstruction,
+    DeltaResultSizeMismatch,
+    DeltaBaseSizeMismatch,
+    InvalidZlib,
+    UnsupportedOfsDelta,
+    CommitParseError,
+    TreeParseError,
+    TagParseError,
 }

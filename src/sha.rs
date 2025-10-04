@@ -1,8 +1,8 @@
+use bincode::{Decode, Encode};
+use bytes::{Bytes, BytesMut};
+use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
-use bincode::{Decode, Encode};
-use bytes::Bytes;
-use serde::{Deserialize, Serialize};
 
 pub mod sha1;
 pub mod sha256;
@@ -13,10 +13,19 @@ pub trait Sha {
     fn reset(&mut self);
 }
 
-#[derive(Deserialize,Serialize,Clone,Debug,Eq,PartialEq)]
+#[derive(Deserialize, Serialize, Clone, Debug, Eq, PartialEq)]
 pub enum HashVersion {
     Sha1,
     Sha256,
+}
+
+impl HashVersion {
+    pub(crate) fn len(&self) -> usize {
+        match self {
+            HashVersion::Sha1 => 20,
+            HashVersion::Sha256 => 32,
+        }
+    }
 }
 
 impl HashVersion {
@@ -38,6 +47,17 @@ impl HashVersion {
 pub enum HashValue {
     Sha1(sha1::Sha1),
     Sha256(sha256::Sha256),
+}
+
+impl HashValue {
+    pub fn from_bytes(p0: &BytesMut) -> Option<HashValue> {
+        let vec = p0.to_vec();
+        match vec.len() {
+            20 => Some(HashValue::Sha1(sha1::Sha1::from_vec(vec)?)),
+            32 => Some(HashValue::Sha256(sha256::Sha256::from_vec(vec)?)),
+            _ => None,
+        }
+    }
 }
 
 impl HashValue {
@@ -102,7 +122,6 @@ impl Sha for HashValue {
         }
     }
 }
-
 
 impl Hash for HashValue {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

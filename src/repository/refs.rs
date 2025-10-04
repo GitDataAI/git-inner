@@ -3,8 +3,6 @@ use crate::refs::RefItem;
 use crate::repository::Repository;
 use crate::sha::HashValue;
 
-
-
 impl Repository {
     pub async fn refs_insert(&self, name: String, value: HashValue) -> Result<(), GitInnerError> {
         self.refs.create_refs(name, value).await

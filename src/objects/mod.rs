@@ -1,13 +1,13 @@
 use bytes::Bytes;
 
-pub mod signature;
 pub mod blob;
-pub mod types;
 pub mod commit;
-pub mod tree;
+pub mod ofs_delta;
+pub mod ref_delta;
+pub mod signature;
 pub mod tag;
-
-
+pub mod tree;
+pub mod types;
 pub trait ObjectTrait {
     fn get_type(&self) -> types::ObjectType;
     fn get_size(&self) -> usize;

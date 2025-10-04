@@ -1,9 +1,8 @@
-use std::sync::{Arc, Mutex};
 use crate::repository::Repository;
-use crate::stream::DataStream;
+use crate::transaction::receive_pack::report_status::ReportStatus;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize,Serialize,Clone,Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub enum TransactionService {
     #[serde(rename = "git-upload-pack")]
     UploadPack,
@@ -15,7 +14,7 @@ pub enum TransactionService {
     ReceivePackLs,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub enum GitProtoVersion {
     V0,
     V1,
@@ -26,13 +25,12 @@ pub struct Transaction {
     pub service: TransactionService,
     pub repository: Repository,
     pub version: GitProtoVersion,
+    pub report_status: ReportStatus,
 }
 
-
+pub mod receive_pack;
 pub mod refs;
 pub mod upload_pack;
-pub mod receive_pack;
-
 
 impl TransactionService {
     pub fn from_string(s: &str) -> Option<TransactionService> {

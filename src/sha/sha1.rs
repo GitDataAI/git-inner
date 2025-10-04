@@ -1,14 +1,14 @@
-use std::hash::Hash;
+use crate::error::GitInnerError;
+use crate::sha::Sha;
 use bincode::{Decode, Encode};
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
-use sha1::{Sha1 as ExternalSha1, Digest};
-use crate::error::GitInnerError;
-use crate::sha::Sha;
+use sha1::{Digest, Sha1 as ExternalSha1};
+use std::hash::Hash;
 
 #[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Decode, Encode)]
 pub struct Sha1 {
-    state: [u8;20],
+    state: [u8; 20],
     buffer: Vec<u8>,
 }
 
@@ -21,12 +21,22 @@ impl Sha1 {
             buffer: Vec::new(),
         }
     }
+    pub fn from_vec(p0: Vec<u8>) -> Option<Sha1> {
+        if p0.len() != 20 {
+            return None;
+        }
+        let state: [u8; 20] = p0.try_into().ok()?;
+        Some(Sha1 {
+            state,
+            buffer: Vec::new(),
+        })
+    }
 }
 
 impl Sha1 {
     pub fn new() -> Sha1 {
         Sha1 {
-            state: [0;20],
+            state: [0; 20],
             buffer: Vec::new(),
         }
     }
@@ -39,7 +49,7 @@ impl Sha1 {
         }
         let mut state = [0; 20];
         for i in 0..20 {
-            state[i] = u8::from_str_radix(&s[i*2..i*2+2], 16)
+            state[i] = u8::from_str_radix(&s[i * 2..i * 2 + 2], 16)
                 .map_err(|_| GitInnerError::InvalidSha1String)?;
         }
         Ok(Sha1 {

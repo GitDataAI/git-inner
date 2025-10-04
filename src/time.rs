@@ -1,9 +1,9 @@
+use crate::error::GitInnerError;
+use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::time::{SystemTime, UNIX_EPOCH};
-use serde::{Deserialize, Serialize};
-use crate::error::GitInnerError;
 
-#[derive(Deserialize,Serialize,Clone,Debug,Copy,Eq, PartialEq)]
+#[derive(Deserialize, Serialize, Clone, Debug, Copy, Eq, PartialEq)]
 pub struct Time {
     pub seconds: u32,
     pub nanos: u32,
@@ -26,7 +26,9 @@ impl Time {
                 let nanos = duration.subsec_nanos();
                 Ok(Time { seconds, nanos })
             }
-            Err(_) => Err(GitInnerError::TimeError("Time is before the UNIX epoch".to_string())),
+            Err(_) => Err(GitInnerError::TimeError(
+                "Time is before the UNIX epoch".to_string(),
+            )),
         }
     }
 }

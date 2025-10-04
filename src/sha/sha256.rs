@@ -1,17 +1,28 @@
-use std::fmt::Display;
-use std::hash::{Hash, Hasher};
+use crate::error::GitInnerError;
+use crate::sha::Sha;
 use bincode::{Decode, Encode};
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
-use sha2::{Sha256 as ExternalSha256, Digest};
-use crate::error::GitInnerError;
-use crate::sha::Sha;
-use crate::sha::sha1::Sha1;
+use sha2::{Digest, Sha256 as ExternalSha256};
+use std::fmt::Display;
+use std::hash::{Hash, Hasher};
 
 #[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Decode, Encode)]
 pub struct Sha256 {
     state: [u8; 32],
     buffer: Vec<u8>,
+}
+
+impl Sha256 {
+    pub(crate) fn from_vec(p0: Vec<u8>) -> Option<Sha256> {
+        if p0.len() != 32 {
+            return None;
+        }
+        Some(Sha256 {
+            state: p0.try_into().ok()?,
+            buffer: Vec::new(),
+        })
+    }
 }
 
 impl Sha256 {

@@ -1,10 +1,8 @@
+use crate::error::GitInnerError;
 use crate::sha::HashValue;
 use crate::sha::HashVersion;
-use crate::error::GitInnerError;
-use std::str::FromStr;
-use bytes::Bytes;
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct ReceiveCommand {
     pub old: HashValue,
     pub new: HashValue,
@@ -26,31 +24,30 @@ impl ReceiveCommand {
             return Ok(None);
         }
 
-        let len_str = std::str::from_utf8(&line[0..4]).map_err(|_| GitInnerError::ConversionError("Invalid pkt-line length".to_string()))?;
-        let _len = u32::from_str_radix(len_str, 16).map_err(|_| GitInnerError::ConversionError("Invalid pkt-line length format".to_string()))?;
+        let len_str = std::str::from_utf8(&line[0..4])
+            .map_err(|_| GitInnerError::ConversionError("Invalid pkt-line length".to_string()))?;
+        let _len = u32::from_str_radix(len_str, 16).map_err(|_| {
+            GitInnerError::ConversionError("Invalid pkt-line length format".to_string())
+        })?;
         if _len == 0 {
-            dbg!();
             return Ok(None);
         }
-        dbg!(_len);
-        dbg!(line.len());
-        dbg!(Bytes::from(line.to_vec()));
         if line.len() < _len as usize {
             return Ok(None);
         }
-        
-        let line_str = std::str::from_utf8(&line[4.._len as usize]).map_err(|_| GitInnerError::ConversionError("Invalid UTF-8 in pkt-line".to_string()))?;
+
+        let line_str = std::str::from_utf8(&line[4.._len as usize])
+            .map_err(|_| GitInnerError::ConversionError("Invalid UTF-8 in pkt-line".to_string()))?;
         let parts: Vec<&str> = line_str.trim().split(' ').collect();
-        
+
         if parts.len() < 3 {
-            dbg!();
             return Ok(None);
         }
-        
+
         let old_sha = parts[0];
         let new_sha = parts[1];
         let ref_name = parts[2];
-        
+
         let old_hash = if old_sha.chars().all(|x| x == '0') {
             HashVersion::Sha1.default()
         } else {
@@ -59,7 +56,7 @@ impl ReceiveCommand {
                 GitInnerError::InvalidSha1String
             })?
         };
-        
+
         let new_hash = if new_sha.chars().all(|x| x == '0') {
             HashVersion::Sha1.default()
         } else {
@@ -68,11 +65,11 @@ impl ReceiveCommand {
                 GitInnerError::InvalidSha1String
             })?
         };
-        
+
         Ok(Some(ReceiveCommand {
             old: old_hash,
             new: new_hash,
-            ref_name: ref_name.to_string(),
+            ref_name: ref_name.to_string().replace("\0", ""),
         }))
     }
 }
@@ -80,7 +77,6 @@ impl ReceiveCommand {
 #[cfg(test)]
 mod tests {
     use crate::transaction::receive_pack::command::ReceiveCommand;
-    use crate::sha::HashVersion;
 
     #[test]
     fn test_from_pkt_line_create_command() {
@@ -100,8 +96,14 @@ mod tests {
         assert!(!command.is_delete());
         assert!(command.is_update());
         assert_eq!(command.ref_name, "refs/heads/experiment");
-        assert_eq!(format!("{}", command.old), "0000000000000000000000000000000000000000");
-        assert_eq!(format!("{}", command.new), "cdfdb42577e2506715f8cfeacdbabc092bf63e8d");
+        assert_eq!(
+            format!("{}", command.old),
+            "0000000000000000000000000000000000000000"
+        );
+        assert_eq!(
+            format!("{}", command.new),
+            "cdfdb42577e2506715f8cfeacdbabc092bf63e8d"
+        );
     }
 
     #[test]
@@ -123,8 +125,14 @@ mod tests {
         assert!(!command.is_delete());
         assert!(command.is_update());
         assert_eq!(command.ref_name, "refs/heads/master");
-        assert_eq!(format!("{}", command.old), "ca82a6dff817ec66f44342007202690a93763949");
-        assert_eq!(format!("{}", command.new), "15027957951b64cf874c3557a0f3547bd83b3ff6");
+        assert_eq!(
+            format!("{}", command.old),
+            "ca82a6dff817ec66f44342007202690a93763949"
+        );
+        assert_eq!(
+            format!("{}", command.new),
+            "15027957951b64cf874c3557a0f3547bd83b3ff6"
+        );
     }
 
     #[test]
@@ -144,8 +152,14 @@ mod tests {
         assert!(command.is_delete());
         assert!(!command.is_update());
         assert_eq!(command.ref_name, "refs/heads/experiment");
-        assert_eq!(format!("{}", command.old), "15027957951b64cf874c3557a0f3547bd83b3ff6");
-        assert_eq!(format!("{}", command.new), "0000000000000000000000000000000000000000");
+        assert_eq!(
+            format!("{}", command.old),
+            "15027957951b64cf874c3557a0f3547bd83b3ff6"
+        );
+        assert_eq!(
+            format!("{}", command.new),
+            "0000000000000000000000000000000000000000"
+        );
     }
 
     #[test]

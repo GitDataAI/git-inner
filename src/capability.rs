@@ -44,6 +44,12 @@ pub enum GitCapability {
 }
 
 impl GitCapability {
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        match std::str::from_utf8(bytes) {
+            Ok(s) => Some(GitCapability::from_str(s)),
+            Err(_) => None,
+        }
+    }
     /// 从字符串解析能力
     pub fn from_str(s: &str) -> Self {
         match s {
@@ -119,7 +125,7 @@ impl GitCapability {
     pub fn upload() -> Vec<GitCapability> {
         let mut capabilities = Self::basic();
         capabilities.extend(vec![
-            GitCapability::OfsDelta,
+            // GitCapability::OfsDelta,
             GitCapability::MultiAck,
             GitCapability::MultiAckDetailed,
             GitCapability::ThinPack,
@@ -132,7 +138,7 @@ impl GitCapability {
     pub fn receive() -> Vec<GitCapability> {
         let mut capabilities = Self::basic();
         capabilities.extend(vec![
-            GitCapability::OfsDelta,
+            // GitCapability::OfsDelta,
             GitCapability::Atomic,
             GitCapability::PushOptions,
             GitCapability::DeleteRefs,
@@ -147,8 +153,14 @@ mod tests {
 
     #[test]
     fn test_parse_simple_capabilities() {
-        assert_eq!(GitCapability::from_str("multi_ack"), GitCapability::MultiAck);
-        assert_eq!(GitCapability::from_str("thin-pack"), GitCapability::ThinPack);
+        assert_eq!(
+            GitCapability::from_str("multi_ack"),
+            GitCapability::MultiAck
+        );
+        assert_eq!(
+            GitCapability::from_str("thin-pack"),
+            GitCapability::ThinPack
+        );
         assert_eq!(GitCapability::from_str("atomic"), GitCapability::Atomic);
     }
 

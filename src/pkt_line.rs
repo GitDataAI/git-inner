@@ -6,4 +6,3 @@ pub fn write_pkt_line(data: String) -> BytesMut {
     let data = format!("{}{}\n", header, data);
     BytesMut::from(data.as_str())
 }
-

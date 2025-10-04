@@ -1,7 +1,7 @@
-use std::pin::Pin;
-use bytes::Bytes;
-use tokio_stream::Stream;
 use crate::error::GitInnerError;
+use bytes::Bytes;
+use std::pin::Pin;
+use tokio_stream::Stream;
 
 pub struct DataStream {
     pub input: Pin<Box<dyn Stream<Item = Result<Bytes, GitInnerError>> + Send + 'static>>,
