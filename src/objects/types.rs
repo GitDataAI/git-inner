@@ -1,5 +1,8 @@
-use std::fmt::Display;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
+use bytes::Bytes;
+use bytes::BytesMut;
+use crate::sha::{HashValue, HashVersion};
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum ObjectType {
@@ -8,10 +11,17 @@ pub enum ObjectType {
     Tree = 2,
     Blob = 3,
     Tag = 4,
-    // Type 5 is reserved for future expansion
-    OffsetDelta = 6,
-    HashDelta = 7,
-    OffsetZstdelta = 255, // Move this to an unused value
+    // 5 reserved
+    OfsDelta = 6, // offset delta
+    RefDelta = 7, // reference delta
+}
+
+impl ObjectType {
+    pub fn hash_value(&self, hash_version: HashVersion, data: &[u8]) -> HashValue {
+        let mut start = BytesMut::from(self.to_raw());
+        start.extend_from_slice(data);
+        hash_version.hash(Bytes::from(start))
+    }
 }
 
 impl ObjectType {
@@ -21,11 +31,12 @@ impl ObjectType {
             2 => ObjectType::Tree,
             3 => ObjectType::Blob,
             4 => ObjectType::Tag,
-            6 => ObjectType::OffsetDelta,
-            7 => ObjectType::HashDelta,
+            6 => ObjectType::OfsDelta,
+            7 => ObjectType::RefDelta,
             _ => ObjectType::Unknown,
         }
     }
+
     pub fn to_u8(&self) -> u8 {
         match self {
             ObjectType::Unknown => 0,
@@ -33,23 +44,23 @@ impl ObjectType {
             ObjectType::Tree => 2,
             ObjectType::Blob => 3,
             ObjectType::Tag => 4,
-            ObjectType::OffsetDelta => 6,
-            ObjectType::HashDelta => 7,
-            ObjectType::OffsetZstdelta => 255,
+            ObjectType::OfsDelta => 6,
+            ObjectType::RefDelta => 7,
         }
     }
+
     pub fn from_str(value: &str) -> Self {
         match value {
             "commit" => ObjectType::Commit,
             "tree" => ObjectType::Tree,
             "blob" => ObjectType::Blob,
             "tag" => ObjectType::Tag,
-            "offset-delta" => ObjectType::OffsetDelta,
-            "hash-delta" => ObjectType::HashDelta,
-            "offset-zstdelta" => ObjectType::OffsetZstdelta,
+            "ofs-delta" => ObjectType::OfsDelta,
+            "ref-delta" => ObjectType::RefDelta,
             _ => ObjectType::Unknown,
         }
     }
+
     pub fn to_str(&self) -> &'static str {
         match self {
             ObjectType::Unknown => "unknown",
@@ -57,22 +68,13 @@ impl ObjectType {
             ObjectType::Tree => "tree",
             ObjectType::Blob => "blob",
             ObjectType::Tag => "tag",
-            ObjectType::OffsetDelta => "offset-delta",
-            ObjectType::HashDelta => "hash-delta",
-            ObjectType::OffsetZstdelta => "offset-zstdelta",
+            ObjectType::OfsDelta => "ofs-delta",
+            ObjectType::RefDelta => "ref-delta",
         }
     }
+
     pub fn to_raw(&self) -> &'static [u8] {
-        match self {
-            ObjectType::Unknown => b"unknown",
-            ObjectType::Commit => b"commit",
-            ObjectType::Tree => b"tree",
-            ObjectType::Blob => b"blob",
-            ObjectType::Tag => b"tag",
-            ObjectType::OffsetDelta => b"offset-delta",
-            ObjectType::HashDelta => b"hash-delta",
-            ObjectType::OffsetZstdelta => b"offset-zstdelta",
-        }
+        self.to_str().as_bytes()
     }
 }
 

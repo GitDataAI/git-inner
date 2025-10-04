@@ -1,10 +1,13 @@
-use std::fmt::{Debug, Display, Formatter};
-use bincode::{Decode, Encode};
-use bstr::ByteSlice;
-use bytes::{Bytes, BytesMut};
-use serde::{Deserialize, Serialize};
+use crate::error::GitInnerError;
+use crate::objects::ObjectTrait;
 use crate::objects::signature::Signature;
+use crate::objects::types::ObjectType;
 use crate::sha::{HashValue, HashVersion};
+use bincode::{Decode, Encode};
+use bytes::Bytes;
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(PartialEq, Eq, Clone, Serialize, Deserialize, Decode, Encode)]
 pub struct Commit {
@@ -14,14 +17,13 @@ pub struct Commit {
     pub committer: Signature,
     pub parents: Vec<HashValue>,
     pub tree: Option<HashValue>,
-    pub gpgsig: Option<Gpgsig>
+    pub gpgsig: Option<Gpgsig>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Decode, Encode)]
 pub struct Gpgsig {
     pub signature: String,
 }
-
 
 // 例1：
 // tree 7551d4da2e9c1ae9397c47709253b405fb6b6206\n
@@ -55,129 +57,119 @@ pub struct Gpgsig {
 // \n
 // docs: update README.md [skip ci]
 
-
+#[derive(Debug)]
+pub enum ParseError {}
 
 impl Commit {
-    pub fn parse(input: Bytes, version: HashVersion) -> Option<Commit> {
-        let mut hash_prev = BytesMut::from(format!("commit {}\0", input.len()).as_bytes());
+    pub fn parse(input: Bytes, version: HashVersion) -> Result<Commit, GitInnerError> {
+        let mut hash_prev = Vec::new();
+        hash_prev.extend_from_slice(format!("commit {}\0", input.len()).as_bytes());
         hash_prev.extend_from_slice(&input);
         let hash = version.hash(Bytes::from(hash_prev));
-        let split: Vec<&[u8]> = input.split_str("\n\n").into_iter().collect();
-        if split.len() < 2 {
-            return None;
-        }
-        let header = split.first().map(|x| x.to_str().unwrap_or_default())?.to_string();
-        let mut lines = header.lines();
+        let input_str = str::from_utf8(&input).map_err(|_| GitInnerError::InvalidUtf8)?;
+        let split_index = input_str.find("\n\n").ok_or(GitInnerError::InvalidUtf8)?;
+        let header_str = &input_str[..split_index];
+        let message = &input_str[split_index + 2..];
         let mut tree: Option<HashValue> = None;
         let mut parents: Vec<HashValue> = Vec::new();
         let mut author: Option<Signature> = None;
         let mut committer: Option<Signature> = None;
-        let mut gpgsig: Option<Gpgsig> = None;
+        let mut gpgsig: Option<String> = None;
+
+        let mut lines = header_str.lines();
         let mut collecting_gpgsig = false;
-        let mut gpgsig_content = String::new();
-        
+        let mut gpgsig_buffer = String::new();
+
         while let Some(line) = lines.next() {
             if collecting_gpgsig {
-                if line.starts_with(" ")
-                    || line.starts_with("-")
-                    || line.starts_with("=")
-                    || line.starts_with("ws")
-                    || line.is_empty()
-                {
-                    gpgsig_content.push_str(line);
-                    gpgsig_content.push('\n');
-                    continue;
-                } else {
+                gpgsig_buffer.push_str(line);
+                gpgsig_buffer.push('\n');
+                if line.contains("END PGP SIGNATURE") {
                     collecting_gpgsig = false;
-                    gpgsig = Some(Gpgsig {
-                        signature: gpgsig_content.trim_end().to_string(),
-                    });
-                    gpgsig_content = String::new();
+                    gpgsig = Some(gpgsig_buffer.trim_end().to_string());
+                    gpgsig_buffer.clear();
                 }
+                continue;
             }
-            
+
             if line.starts_with("tree ") {
-                if let Some(hash_str) = line.strip_prefix("tree ") {
-                    if let Some(hash_value) = HashValue::from_str(hash_str) {
-                        tree = Some(hash_value);
-                    }
-                }
+                let hash_str = line["tree ".len()..].trim();
+                tree = HashValue::from_str(hash_str);
             } else if line.starts_with("parent ") {
-                if let Some(hash_str) = line.strip_prefix("parent ") {
-                    for idx in hash_str.split(' ') {
-                        if let Some(hash_value) = HashValue::from_str(idx) {
-                            parents.push(hash_value);
-                        }
-                    }
+                let hash_str = line["parent ".len()..].trim();
+                if let Some(parent_hash) = HashValue::from_str(hash_str) {
+                    parents.push(parent_hash);
                 }
             } else if line.starts_with("author ") {
-                if let Some(author_data) = line.strip_prefix("author ") {
-                    if let Ok(sig) = Signature::from_data(format!("author {}", author_data).as_bytes().to_vec()) {
-                        author = Some(sig);
-                    }
-                }
+                let data = line["author ".len()..].trim();
+                author = Some(
+                    Signature::from_data(format!("author {}", data).as_bytes().to_vec())
+                        .map_err(|_| GitInnerError::MissingAuthor)?,
+                );
             } else if line.starts_with("committer ") {
-                if let Some(committer_data) = line.strip_prefix("committer ") {
-                    if let Ok(sig) = Signature::from_data(format!("committer {}", committer_data).as_bytes().to_vec()) {
-                        committer = Some(sig);
-                    }
-                }
+                let data = line["committer ".len()..].trim();
+                committer = Some(
+                    Signature::from_data(format!("committer {}", data).as_bytes().to_vec())
+                        .map_err(|_| GitInnerError::MissingCommitter)?,
+                );
             } else if line.starts_with("gpgsig ") {
                 collecting_gpgsig = true;
-                if let Some(sig_data) = line.strip_prefix("gpgsig ") {
-                    gpgsig_content.push_str("gpgsig ");
-                    gpgsig_content.push_str(sig_data);
-                    gpgsig_content.push('\n');
-                }
+                gpgsig_buffer.push_str(line);
+                gpgsig_buffer.push('\n');
             }
         }
-        
-        if collecting_gpgsig && !gpgsig_content.is_empty() {
-            gpgsig = Some(Gpgsig {
-                signature: gpgsig_content.trim_end().to_string(),
-            });
-        }
-        
-        let message = if split.len() >= 3 {
-            split[2].to_str().unwrap_or_default().to_string()
-        } else {
-            split[1].to_str().unwrap_or_default().to_string()
-        };
-        Some(Commit {
+
+        Ok(Commit {
             hash,
-            message,
-            author: author.unwrap_or_default(),
-            committer: committer.unwrap_or_default(),
+            message: message.to_string(),
+            author: author.ok_or(GitInnerError::MissingAuthor)?,
+            committer: committer.ok_or(GitInnerError::MissingCommitter)?,
             parents,
             tree,
-            gpgsig,
+            gpgsig: gpgsig.map(|sig| Gpgsig { signature: sig }),
         })
     }
 }
 
-
 impl Display for Commit {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "\ncommit {}\n", self.hash.to_string())?;
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if let Some(tree) = &self.tree {
-            write!(f, "tree {}\n", tree.to_string())?;
+            writeln!(f, "tree {}", tree)?;
         }
-        write!(f, "parent\
-         \n")?;
         for parent in &self.parents {
-            write!(f, " - {}\n", parent.to_string())?;
+            writeln!(f, "parent {}", parent)?;
         }
-        write!(f, "author {}", self.author)?;
-        write!(f, "committer {}", self.committer)?;
+        writeln!(f, "author {}", self.author)?;
+        writeln!(f, "committer {}", self.committer)?;
         if let Some(gpgsig) = &self.gpgsig {
-            write!(f, "gpgsig {}\n", gpgsig.signature)?;
+            let sig_lines = gpgsig.signature.lines();
+            writeln!(f, "gpgsig -----BEGIN PGP SIGNATURE-----")?;
+            for line in sig_lines {
+                writeln!(f, " {}", line)?;
+            }
+            writeln!(f, " -----END PGP SIGNATURE-----")?;
         }
-        write!(f, "\n{}", self.message)
+        writeln!(f)?;
+        write!(f, "{}", self.message)
     }
 }
 
 impl Debug for Commit {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Display::fmt(self, f)
+    }
+}
+
+impl ObjectTrait for Commit {
+    fn get_type(&self) -> ObjectType {
+        ObjectType::Commit
+    }
+
+    fn get_size(&self) -> usize {
+        self.get_data().len()
+    }
+
+    fn get_data(&self) -> Bytes {
+        Bytes::from(self.to_string())
     }
 }

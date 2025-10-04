@@ -1,9 +1,12 @@
-use std::fmt::Display;
-use bincode::{Decode, Encode};
-use encoding_rs::GBK;
-use serde::{Deserialize, Serialize};
 use crate::error::GitInnerError;
-use crate::sha::HashValue;
+use crate::objects::ObjectTrait;
+use crate::objects::types::ObjectType;
+use crate::sha::{HashValue, HashVersion};
+use bincode::{Decode, Encode};
+use bytes::Bytes;
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::fmt::{Display, Formatter};
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, Hash, Encode, Decode)]
 pub enum TreeItemMode {
@@ -64,16 +67,9 @@ pub struct TreeItem {
     pub name: String,
 }
 
-
 impl Display for TreeItem {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "{} {} {}",
-            self.mode,
-            self.name,
-            self.id.to_string()
-        )
+        write!(f, "{} {} {}", self.mode, self.name, self.id.to_string())
     }
 }
 
@@ -121,11 +117,87 @@ impl PartialEq for Tree {
 }
 
 impl Display for Tree {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        writeln!(f, "Tree: {}", self.id.to_string())?;
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         for item in &self.tree_items {
-            writeln!(f, "{item}")?;
+            writeln!(
+                f,
+                "{} {} {}\t{}",
+                item.mode,
+                match item.mode {
+                    TreeItemMode::Blob => "blob",
+                    TreeItemMode::BlobExecutable => "blob",
+                    TreeItemMode::Tree => "tree",
+                    TreeItemMode::Commit => "commit",
+                    TreeItemMode::Link => "link",
+                },
+                item.id,
+                item.name
+            )?;
         }
         Ok(())
+    }
+}
+
+impl ObjectTrait for Tree {
+    fn get_type(&self) -> ObjectType {
+        ObjectType::Tree
+    }
+
+    fn get_size(&self) -> usize {
+        self.tree_items
+            .iter()
+            .map(|item| item.to_data().len())
+            .sum()
+    }
+
+    fn get_data(&self) -> Bytes {
+        let mut data = Vec::new();
+        for item in &self.tree_items {
+            data.extend_from_slice(&item.to_data());
+        }
+        Bytes::from(data)
+    }
+}
+
+impl Tree {
+    pub fn parse(input: Bytes, hash_version: HashVersion) -> Result<Tree, GitInnerError> {
+        let mut tree_items = Vec::new();
+        let mut pos = 0;
+        let input_len = input.len();
+        while pos < input_len {
+            let space_pos = input[pos..]
+                .iter()
+                .position(|&b| b == b' ')
+                .ok_or_else(|| GitInnerError::InvalidTreeItem("Missing space after mode".into()))?;
+            let mode_bytes = &input[pos..pos + space_pos];
+            let mode = TreeItemMode::tree_item_type_from_bytes(mode_bytes)?;
+
+            pos += space_pos + 1;
+            let null_pos = input[pos..]
+                .iter()
+                .position(|&b| b == b'\0')
+                .ok_or_else(|| {
+                    GitInnerError::InvalidTreeItem("Missing null after filename".into())
+                })?;
+            let name_bytes = &input[pos..pos + null_pos];
+            let name = String::from_utf8(name_bytes.to_vec())
+                .map_err(|_| GitInnerError::InvalidTreeItem("Filename not UTF-8".into()))?;
+
+            pos += null_pos + 1;
+            if pos + 20 > input_len {
+                return Err(GitInnerError::InvalidTreeItem(
+                    "Tree item hash truncated".into(),
+                ));
+            }
+            let id = hash_version.hash(Bytes::from(input[pos..pos + 20].to_vec()));
+            pos += 20;
+            tree_items.push(TreeItem::new(mode, id, name));
+        }
+        let mut hash_input = Vec::new();
+        hash_input.extend_from_slice(format!("tree {}\0", input.len()).as_bytes());
+        hash_input.extend_from_slice(&input);
+        let id = hash_version.hash(Bytes::from(hash_input));
+
+        Ok(Tree { id, tree_items })
     }
 }

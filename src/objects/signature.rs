@@ -1,10 +1,10 @@
-use std::fmt::{Debug, Display};
-use std::str::FromStr;
+use crate::error::GitInnerError;
 use bincode::{Decode, Encode};
 use bstr::ByteSlice;
 use chrono::Offset;
 use serde::{Deserialize, Serialize};
-use crate::error::GitInnerError;
+use std::fmt::{Debug, Display};
+use std::str::FromStr;
 
 #[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Decode, Encode)]
 pub enum SignatureType {
@@ -20,7 +20,6 @@ impl SignatureType {
         SignatureType::from_str(s.as_str())
     }
 
-    
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
             SignatureType::Author => "author".to_string().into_bytes(),
@@ -62,8 +61,13 @@ pub struct Signature {
 
 impl Display for Signature {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let date = chrono::DateTime::<chrono::Utc>::from_timestamp(self.timestamp as i64, 0).unwrap();
-        writeln!(f, "{} <{}> Data: {} {}", self.name, self.email, date, self.timezone)
+        let date =
+            chrono::DateTime::<chrono::Utc>::from_timestamp(self.timestamp as i64, 0).unwrap();
+        writeln!(
+            f,
+            "{} <{}> Data: {} {}",
+            self.name, self.email, date, self.timezone
+        )
     }
 }
 
@@ -89,15 +93,18 @@ impl Signature {
     pub fn from_data(data: Vec<u8>) -> Result<Signature, GitInnerError> {
         let mut sign = data;
 
-        let name_start = sign.find_byte(0x20)
+        let name_start = sign
+            .find_byte(0x20)
             .ok_or(GitInnerError::InvalidSignature)?;
 
         let signature_type = SignatureType::from_data(sign[..name_start].to_vec())?;
 
         let (name, email) = {
-            let email_start = sign.find_byte(0x3C)
+            let email_start = sign
+                .find_byte(0x3C)
                 .ok_or(GitInnerError::InvalidSignature)?;
-            let email_end = sign.find_byte(0x3E)
+            let email_end = sign
+                .find_byte(0x3E)
                 .ok_or(GitInnerError::InvalidSignature)?;
             unsafe {
                 (
@@ -113,7 +120,8 @@ impl Signature {
 
         sign = sign[sign.find_byte(0x3E).unwrap() + 2..].to_vec();
 
-        let timestamp_split = sign.find_byte(0x20)
+        let timestamp_split = sign
+            .find_byte(0x20)
             .ok_or(GitInnerError::InvalidSignature)?;
 
         let timestamp = unsafe {
@@ -154,7 +162,6 @@ impl Signature {
         Ok(sign)
     }
 
-    
     pub fn new(sign_type: SignatureType, author: String, email: String) -> Signature {
         let local_time = chrono::Local::now();
 
