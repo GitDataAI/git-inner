@@ -42,4 +42,6 @@ pub enum GitInnerError {
     CommitParseError,
     TreeParseError,
     TagParseError,
+    HeadBranchCannotBeDeleted,
+    DefaultBranchCannotBeDeleted,
 }

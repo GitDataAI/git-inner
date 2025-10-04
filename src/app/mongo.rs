@@ -18,6 +18,7 @@ pub struct MongoRepository {
     pub namespace: String,
     pub uid: Uuid,
     pub hash_version: i32,
+    pub default_branch: String
 }
 
 #[derive(Debug, Clone)]
@@ -68,6 +69,7 @@ impl RepoStore for MongoRepoManager {
         };
         let refs = MongoRefsManager {
             repo_uid: mongo_repo.uid.clone(),
+            default_branch: mongo_repo.default_branch.clone(),
             db_client: self.db_client.clone(),
             refs: db.collection("refs"),
             hash_version: hash_version.clone(),
@@ -75,6 +77,7 @@ impl RepoStore for MongoRepoManager {
         Ok(Repository {
             id: uuid::Uuid::from_slice(mongo_repo.uid.bytes().as_slice())
                 .map_err(|_| GitInnerError::UuidError)?,
+            default_branch: mongo_repo.default_branch,
             odb: Box::new(odb),
             refs: Box::new(refs),
             hash_version,

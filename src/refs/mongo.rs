@@ -15,6 +15,7 @@ pub struct MongoRefItem {
 
 pub struct MongoRefsManager {
     pub repo_uid: Uuid,
+    pub default_branch: String,
     pub db_client: Client,
     pub refs: Collection<MongoRefItem>,
     pub hash_version: HashVersion,
@@ -73,7 +74,6 @@ impl RefsManager for MongoRefsManager {
             })
             .await
             .map_err(|e| GitInnerError::MongodbError(e.to_string()))?;
-
         let ref_items: Vec<RefItem> = cursor
             .try_collect::<Vec<MongoRefItem>>()
             .await
@@ -94,7 +94,6 @@ impl RefsManager for MongoRefsManager {
             })
             .await
             .map_err(|e| GitInnerError::MongodbError(e.to_string()))?;
-
         let ref_items: Vec<RefItem> = cursor
             .try_collect::<Vec<MongoRefItem>>()
             .await
@@ -107,6 +106,11 @@ impl RefsManager for MongoRefsManager {
     }
 
     async fn del_refs(&self, ref_name: String) -> Result<(), GitInnerError> {
+        if let Some(refs_name_prefix) = Some(ref_name.strip_prefix("refs/heads/").unwrap()) {
+            if refs_name_prefix == self.default_branch {
+                return Err(GitInnerError::DefaultBranchCannotBeDeleted);
+            }
+        }
         self.refs
             .delete_one(doc! {
                 "repo_uid": self.repo_uid,
@@ -123,13 +127,16 @@ impl RefsManager for MongoRefsManager {
         ref_name: String,
         ref_value: HashValue,
     ) -> Result<(), GitInnerError> {
-        // 判断是否是分支或标签
         let is_branch = ref_name.starts_with("refs/heads/");
         let is_tag = ref_name.starts_with("refs/tags/");
-        let is_head = ref_name == "HEAD";
-
+        let mut is_head = ref_name == "HEAD";
+        if let Some(refs_name_prefix) = Some(ref_name.strip_prefix("refs/heads/").unwrap()) {
+            if refs_name_prefix == self.default_branch {
+                is_head = true;
+            }
+        }
         let ref_item = RefItem {
-            name: ref_name,
+            name: ref_name.clone(),
             value: ref_value,
             is_branch,
             is_tag,

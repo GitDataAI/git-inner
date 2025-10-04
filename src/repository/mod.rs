@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 pub struct Repository {
     pub id: Uuid,
+    pub default_branch: String,
     pub odb: Box<dyn Odb>,
     pub refs: Box<dyn RefsManager>,
     pub hash_version: HashVersion,
