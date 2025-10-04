@@ -4,6 +4,7 @@ use crate::pkt_line::write_pkt_line;
 use crate::transaction::{Transaction, TransactionService};
 use bstr::ByteSlice;
 use bytes::{Bytes, BytesMut};
+use crate::sha::HashVersion;
 
 impl Transaction {
     pub async fn advertise(&self) -> Result<Bytes, GitInnerError> {
@@ -18,6 +19,11 @@ impl Transaction {
             TransactionService::UploadPackLs => {}
             TransactionService::ReceivePackLs => {}
         }
+        let sha_version = GitCapability::ObjectFormat(match self.repository.hash_version {
+            HashVersion::Sha1 => "sha1".to_string(),
+            HashVersion::Sha256 => "sha256".to_string()
+        });
+        capabilities.push(sha_version);
         let head = self.repository.refs.head().await?;
         let refs = self.repository.refs.refs().await?;
         let mut result = BytesMut::new();
