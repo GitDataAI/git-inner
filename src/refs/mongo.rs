@@ -53,7 +53,6 @@ impl RefsManager for MongoRefsManager {
             })
             .await
             .map_err(|e| GitInnerError::MongodbError(e.to_string()))?;
-
         let ref_items: Vec<RefItem> = cursor
             .try_collect::<Vec<MongoRefItem>>()
             .await
@@ -61,7 +60,6 @@ impl RefsManager for MongoRefsManager {
             .into_iter()
             .map(|mongo_ref_item| mongo_ref_item.ref_item)
             .collect();
-
         Ok(ref_items)
     }
 
@@ -163,10 +161,9 @@ impl RefsManager for MongoRefsManager {
     ) -> Result<(), GitInnerError> {
         let update = doc! {
             "$set": {
-                "ref_item.value": ref_value.to_string()
+                "ref_item.value": mongodb::bson::to_bson(&ref_value)?
             }
         };
-
         self.refs
             .update_one(
                 doc! {
