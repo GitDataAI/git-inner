@@ -49,7 +49,7 @@ impl Odb for OdbMongoObject {
             .commit
             .find_one(doc! {
                 "repo_uid": self.repo_uid,
-                "hash": hash.to_string()
+                "hash": mongodb::bson::to_bson(&hash)?
             })
             .await
             .map_err(|e| GitInnerError::MongodbError(format!("{}", e)))?;
@@ -64,7 +64,7 @@ impl Odb for OdbMongoObject {
             .commit
             .find_one(doc! {
                 "repo_uid": self.repo_uid,
-                "hash": hash.to_string()
+                "hash": mongodb::bson::to_bson(&hash)?
             })
             .await
             .map_err(|e| GitInnerError::MongodbError(format!("{}", e)))?;
@@ -96,7 +96,7 @@ impl Odb for OdbMongoObject {
             .tag
             .find_one(doc! {
                 "repo_uid": self.repo_uid,
-                "hash": hash.to_string()
+                "hash": mongodb::bson::to_bson(&hash)?
             })
             .await
             .map_err(|e| GitInnerError::MongodbError(format!("{}", e)))?;
@@ -111,7 +111,7 @@ impl Odb for OdbMongoObject {
             .tag
             .find_one(doc! {
                 "repo_uid": self.repo_uid,
-                "hash": hash.to_string()
+                "hash": mongodb::bson::to_bson(&hash)?
             })
             .await
             .map_err(|e| GitInnerError::MongodbError(format!("{}", e)))?;
@@ -143,7 +143,7 @@ impl Odb for OdbMongoObject {
             .tree
             .find_one(doc! {
                 "repo_uid": self.repo_uid,
-                "hash": hash.to_string()
+                "hash": mongodb::bson::to_bson(&hash)?
             })
             .await
             .map_err(|e| GitInnerError::MongodbError(format!("{}", e)))?;
@@ -158,7 +158,7 @@ impl Odb for OdbMongoObject {
             .tree
             .find_one(doc! {
                 "repo_uid": self.repo_uid,
-                "hash": hash.to_string()
+                "hash": mongodb::bson::to_bson(&hash)?
             })
             .await
             .map_err(|e| GitInnerError::MongodbError(format!("{}", e)))?;
