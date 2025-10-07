@@ -1,15 +1,16 @@
 use crate::error::GitInnerError;
 use crate::sha::Sha;
-use bincode::{Decode, Encode};
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
-use sha1::{Digest, Sha1 as ExternalSha1};
+use sha1::digest::core_api::CoreWrapper;
+use sha1::{Digest, Sha1Core};
 use std::hash::Hash;
 
-#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Decode, Encode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Sha1 {
-    state: [u8; 20],
-    buffer: Vec<u8>,
+    pub state: [u8; 20],
+    #[serde(skip)]
+    buffer: CoreWrapper<Sha1Core>,
 }
 
 impl Sha1 {
@@ -18,7 +19,7 @@ impl Sha1 {
         sha1.update(p0);
         Sha1 {
             state: <[u8; 20]>::from(sha1.finalize()),
-            buffer: Vec::new(),
+            buffer: sha1::Sha1::default(),
         }
     }
     pub fn from_vec(p0: Vec<u8>) -> Option<Sha1> {
@@ -28,7 +29,7 @@ impl Sha1 {
         let state: [u8; 20] = p0.try_into().ok()?;
         Some(Sha1 {
             state,
-            buffer: Vec::new(),
+            buffer: sha1::Sha1::default(),
         })
     }
 }
@@ -37,7 +38,7 @@ impl Sha1 {
     pub fn new() -> Sha1 {
         Sha1 {
             state: [0; 20],
-            buffer: Vec::new(),
+            buffer: sha1::Sha1::default(),
         }
     }
     pub fn is_zero(&self) -> bool {
@@ -54,7 +55,7 @@ impl Sha1 {
         }
         Ok(Sha1 {
             state,
-            buffer: Vec::new(),
+            buffer: sha1::Sha1::default(),
         })
     }
 }
@@ -82,19 +83,17 @@ impl Hash for Sha1 {
 
 impl Sha for Sha1 {
     fn update(&mut self, data: &[u8]) {
-        self.buffer.extend_from_slice(data);
+        self.buffer.update(data);
     }
 
     fn finalize(&mut self) -> Vec<u8> {
-        let mut hasher = ExternalSha1::new();
-        hasher.update(&self.buffer);
-        let result = hasher.finalize();
-        self.state.copy_from_slice(&result[..20]);
+        let result = self.buffer.clone().finalize();
+        self.state.copy_from_slice(&result);
         self.state.to_vec()
     }
 
     fn reset(&mut self) {
         self.state = [0; 20];
-        self.buffer.clear();
+        self.buffer.reset();
     }
 }
