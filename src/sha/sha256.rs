@@ -1,16 +1,18 @@
 use crate::error::GitInnerError;
 use crate::sha::Sha;
-use bincode::{Decode, Encode};
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256 as ExternalSha256};
+use sha2::digest::consts::U32;
+use sha2::digest::core_api::{CoreWrapper, CtVariableCoreWrapper};
+use sha2::{Digest, OidSha256, Sha256VarCore};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 
-#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Decode, Encode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Sha256 {
-    state: [u8; 32],
-    buffer: Vec<u8>,
+    pub state: [u8; 32],
+    #[serde(skip)]
+    buffer: CoreWrapper<CtVariableCoreWrapper<Sha256VarCore, U32, OidSha256>>,
 }
 
 impl Sha256 {
@@ -20,7 +22,7 @@ impl Sha256 {
         }
         Some(Sha256 {
             state: p0.try_into().ok()?,
-            buffer: Vec::new(),
+            buffer: sha2::Sha256::new(),
         })
     }
 }
@@ -31,7 +33,7 @@ impl Sha256 {
         sha2.update(&p0);
         Sha256 {
             state: sha2.finalize().into(),
-            buffer: Vec::new(),
+            buffer: sha2::Sha256::new(),
         }
     }
 }
@@ -40,7 +42,7 @@ impl Sha256 {
     pub fn new() -> Self {
         Sha256 {
             state: [0; 32],
-            buffer: Vec::new(),
+            buffer: sha2::Sha256::new(),
         }
     }
     pub fn is_zero(&self) -> bool {
@@ -57,7 +59,7 @@ impl Sha256 {
         }
         Ok(Sha256 {
             state,
-            buffer: Vec::new(),
+            buffer: sha2::Sha256::new(),
         })
     }
 }
@@ -78,19 +80,17 @@ impl Hash for Sha256 {
 }
 impl Sha for Sha256 {
     fn update(&mut self, data: &[u8]) {
-        self.buffer.extend_from_slice(data);
+        self.buffer.update(data);
     }
 
     fn finalize(&mut self) -> Vec<u8> {
-        let mut hasher = ExternalSha256::new();
-        hasher.update(&self.buffer);
-        let result = hasher.finalize();
-        self.state.copy_from_slice(&result[..32]);
+        let result = self.buffer.clone().finalize();
+        self.state.copy_from_slice(&result);
         self.state.to_vec()
     }
 
     fn reset(&mut self) {
         self.state = [0; 32];
-        self.buffer.clear();
+        self.buffer.reset();
     }
 }
