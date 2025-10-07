@@ -1,9 +1,9 @@
 use crate::error::GitInnerError;
-use crate::objects::ObjectTrait;
 use crate::objects::types::ObjectType;
+use crate::objects::ObjectTrait;
 use crate::sha::{HashValue, HashVersion};
 use bincode::{Decode, Encode};
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -18,32 +18,29 @@ pub enum TreeItemMode {
 }
 
 impl Display for TreeItemMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let _print = match *self {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let s = match *self {
             TreeItemMode::Blob => "blob",
             TreeItemMode::BlobExecutable => "blob executable",
             TreeItemMode::Tree => "tree",
             TreeItemMode::Commit => "commit",
             TreeItemMode::Link => "link",
         };
-
-        write!(f, "{}", String::from(_print))
+        write!(f, "{}", s)
     }
 }
 
 impl TreeItemMode {
     pub fn tree_item_type_from_bytes(mode: &[u8]) -> Result<TreeItemMode, GitInnerError> {
         Ok(match mode {
-            b"40000" => TreeItemMode::Tree,
-            b"100644" => TreeItemMode::Blob,
+            b"040000" | b"40000" => TreeItemMode::Tree, // 兼容旧格式
+            b"100644" | b"100664" | b"100640" => TreeItemMode::Blob,
             b"100755" => TreeItemMode::BlobExecutable,
             b"120000" => TreeItemMode::Link,
             b"160000" => TreeItemMode::Commit,
-            b"100664" => TreeItemMode::Blob,
-            b"100640" => TreeItemMode::Blob,
             _ => {
                 return Err(GitInnerError::InvalidTreeItem(
-                    String::from_utf8(mode.to_vec()).unwrap(),
+                    String::from_utf8_lossy(mode).to_string(),
                 ));
             }
         })
@@ -58,9 +55,13 @@ impl TreeItemMode {
             TreeItemMode::Commit => b"160000",
         }
     }
+
+    pub fn to_str(self) -> &'static str {
+        std::str::from_utf8(self.to_bytes()).unwrap()
+    }
 }
 
-#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Hash, Encode, Decode)]
+#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Hash)]
 pub struct TreeItem {
     pub mode: TreeItemMode,
     pub id: HashValue,
@@ -68,43 +69,38 @@ pub struct TreeItem {
 }
 
 impl Display for TreeItem {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{} {} {}", self.mode, self.name, self.id.to_string())
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{} {} {}", self.mode, self.name, self.id)
     }
 }
 
 impl TreeItem {
-    pub fn new(mode: TreeItemMode, id: HashValue, name: String) -> TreeItem {
-        TreeItem { mode, id, name }
+    pub fn new(mode: TreeItemMode, id: HashValue, name: String) -> Self {
+        Self { mode, id, name }
     }
+
     pub fn to_data(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
         bytes.extend_from_slice(self.mode.to_bytes());
         bytes.push(b' ');
         bytes.extend_from_slice(self.name.as_bytes());
-        bytes.push(b'\0');
-        bytes.extend_from_slice(&self.id.raw());
-        bytes
-    }
-    pub fn is_tree(&self) -> bool {
-        self.mode == TreeItemMode::Tree
-    }
+        bytes.push(0);
+        let raw = self.id.raw();
+        let raw_bytes = match raw.len() {
+            20 | 32 => raw.clone(),
+            40 | 64 => {
+                hex::decode(raw).expect("invalid hex hash string")
+            }
+            len => panic!("unexpected hash length: {}", len),
+        };
 
-    pub fn is_blob(&self) -> bool {
-        self.mode == TreeItemMode::Blob
-    }
-    pub fn is_commit(&self) -> bool {
-        self.mode == TreeItemMode::Commit
-    }
-    pub fn is_link(&self) -> bool {
-        self.mode == TreeItemMode::Link
-    }
-    pub fn is_blob_executable(&self) -> bool {
-        self.mode == TreeItemMode::BlobExecutable
+        bytes.extend_from_slice(&raw_bytes);
+        bytes
     }
 }
 
-#[derive(Eq, Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+
+#[derive(Eq, Debug, Clone, Serialize, Deserialize)]
 pub struct Tree {
     pub id: HashValue,
     pub tree_items: Vec<TreeItem>,
@@ -122,10 +118,9 @@ impl Display for Tree {
             writeln!(
                 f,
                 "{} {} {}\t{}",
-                item.mode,
+                item.mode.to_str(),
                 match item.mode {
-                    TreeItemMode::Blob => "blob",
-                    TreeItemMode::BlobExecutable => "blob",
+                    TreeItemMode::Blob | TreeItemMode::BlobExecutable => "blob",
                     TreeItemMode::Tree => "tree",
                     TreeItemMode::Commit => "commit",
                     TreeItemMode::Link => "link",
@@ -144,16 +139,13 @@ impl ObjectTrait for Tree {
     }
 
     fn get_size(&self) -> usize {
-        self.tree_items
-            .iter()
-            .map(|item| item.to_data().len())
-            .sum()
+        self.tree_items.iter().map(|i| i.to_data().len()).sum()
     }
 
     fn get_data(&self) -> Bytes {
         let mut data = Vec::new();
-        for item in &self.tree_items {
-            data.extend_from_slice(&item.to_data());
+        for i in &self.tree_items {
+            data.extend_from_slice(&i.to_data());
         }
         Bytes::from(data)
     }
@@ -164,6 +156,7 @@ impl Tree {
         let mut tree_items = Vec::new();
         let mut pos = 0;
         let input_len = input.len();
+
         while pos < input_len {
             let space_pos = input[pos..]
                 .iter()
@@ -176,28 +169,78 @@ impl Tree {
             let null_pos = input[pos..]
                 .iter()
                 .position(|&b| b == b'\0')
-                .ok_or_else(|| {
-                    GitInnerError::InvalidTreeItem("Missing null after filename".into())
-                })?;
+                .ok_or_else(|| GitInnerError::InvalidTreeItem("Missing null after filename".into()))?;
             let name_bytes = &input[pos..pos + null_pos];
             let name = String::from_utf8(name_bytes.to_vec())
                 .map_err(|_| GitInnerError::InvalidTreeItem("Filename not UTF-8".into()))?;
 
             pos += null_pos + 1;
             if pos + 20 > input_len {
-                return Err(GitInnerError::InvalidTreeItem(
-                    "Tree item hash truncated".into(),
-                ));
+                return Err(GitInnerError::InvalidTreeItem("Tree item hash truncated".into()));
             }
-            let id = hash_version.hash(Bytes::from(input[pos..pos + 20].to_vec()));
+            let id = HashValue::from_bytes(&BytesMut::from(&input[pos..pos + 20])).unwrap();
             pos += 20;
+
             tree_items.push(TreeItem::new(mode, id, name));
         }
+
+        if pos != input_len {
+            return Err(GitInnerError::InvalidTreeItem(format!(
+                "Unexpected trailing bytes in tree: {}/{}",
+                pos, input_len
+            )));
+        }
+
         let mut hash_input = Vec::new();
-        hash_input.extend_from_slice(format!("tree {}\0", input.len()).as_bytes());
+        hash_input.extend_from_slice(format!("tree {}\0", input_len).as_bytes());
         hash_input.extend_from_slice(&input);
         let id = hash_version.hash(Bytes::from(hash_input));
 
         Ok(Tree { id, tree_items })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bytes::Bytes;
+
+    #[test]
+    fn test_tree_roundtrip() {
+        let blob_hash = HashVersion::Sha1.hash(Bytes::from("hello world"));
+        let sub_tree_hash = HashVersion::Sha1.hash(Bytes::from("subdir content"));
+
+        let tree = Tree {
+            id: HashVersion::Sha1.hash(Bytes::from("dummy")),
+            tree_items: vec![
+                TreeItem::new(TreeItemMode::Blob, blob_hash.clone(), "file.txt".into()),
+                TreeItem::new(TreeItemMode::Tree, sub_tree_hash.clone(), "subdir".into()),
+            ],
+        };
+
+        let data = tree.get_data();
+        assert!(
+            data.windows(b"040000 subdir".len()).any(|w| w == b"040000 subdir"),
+            "Tree data missing '040000 subdir'"
+        );
+
+        // Roundtrip parse
+        let parsed = Tree::parse(data.clone(), HashVersion::Sha1).unwrap();
+        assert_eq!(parsed.tree_items.len(), 2);
+        assert_eq!(parsed.tree_items[1].mode, TreeItemMode::Tree);
+        assert_eq!(parsed.tree_items[1].name, "subdir");
+
+        // Re-serialize to ensure deterministic structure
+        let re_data = parsed.get_data();
+        assert_eq!(data, re_data, "Tree serialization mismatch");
+
+        // Display formatting sanity check
+        let output = format!("{}", parsed);
+        assert!(
+            output.contains("040000 tree"),
+            "Display output missing expected mode"
+        );
+
+        println!("Tree display:\n{}", output);
     }
 }

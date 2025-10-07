@@ -1,8 +1,9 @@
-use crate::app::AppCore;
-use crate::transaction::receive_pack::report_status::ReportStatus;
-use crate::transaction::{GitProtoVersion, Transaction, TransactionService};
+use crate::callback::CallBack;
+use crate::serve::AppCore;
+use crate::transaction::{GitProtoVersion, ProtocolType, Transaction, TransactionService};
 use actix_web::web::{Data, Path};
-use actix_web::{HttpRequest, HttpResponse, Responder, web};
+use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use bytes::BytesMut;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -35,17 +36,27 @@ pub async fn refs(
         }
         None => GitProtoVersion::V1,
     };
-    let report_status = ReportStatus::new(20);
+    let call_back = CallBack::new(20);
     let transaction = Transaction {
         service: query.service.clone(),
         repository: repo,
         version,
-        report_status,
+        call_back: call_back.clone(),
+        protocol: ProtocolType::Http,
     };
-    let refs = match transaction.http_advertise().await {
-        Ok(refs) => refs,
-        Err(_) => return HttpResponse::InternalServerError().body("Error getting refs"),
-    };
+    match transaction.advertise_refs().await {
+        Ok(_) => {}
+        Err(_) => {
+        }
+    }
+    let mut result = BytesMut::new();
+    let mut recv = call_back.receive.lock().await;
+    while let Some(msg) = recv.recv().await {
+        result.extend_from_slice(&msg);
+        if msg.is_empty() {
+            break;
+        }
+    }
     HttpResponse::Ok()
         .insert_header(("Pragma", "no-cache"))
         .insert_header(("Cache-Control", "no-cache, max-age=0, must-revalidate"))
@@ -53,11 +64,9 @@ pub async fn refs(
         .insert_header((
             "Content-Type",
             match query.service {
-                TransactionService::UploadPack => "application/x-git-upload-pack-advertisement",
-                TransactionService::ReceivePack => "application/x-git-receive-pack-advertisement",
-                TransactionService::UploadPackLs => "",
-                TransactionService::ReceivePackLs => "",
+                TransactionService::UploadPack | TransactionService::UploadPackLs=> "application/x-git-upload-pack-advertisement",
+                TransactionService::ReceivePack |  TransactionService::ReceivePackLs=> "application/x-git-receive-pack-advertisement",
             },
         ))
-        .body(refs)
+        .body(result.freeze())
 }

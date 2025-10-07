@@ -1,3 +1,11 @@
 /target
-/data
-.idea/*
+data
+.idea
+.vscode
+.zed
+*/*.iml
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp

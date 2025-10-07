@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use crate::error::GitInnerError;
-use crate::objects::ObjectTrait;
 use crate::objects::types::ObjectType;
+use crate::objects::ObjectTrait;
 use crate::odb::OdbTransaction;
 use crate::sha::HashValue;
 use bstr::ByteSlice;
@@ -22,6 +22,17 @@ impl RefDelta {
         txn: Arc<Box<dyn OdbTransaction>>,
         resolved_ofs: &BTreeMap<u64, (HashValue, Bytes, ObjectType)>,
     ) -> Result<(Bytes, ObjectType), GitInnerError> {
+        // let (base_obj_bytes, obj) = if txn.has_blob(base_hash).await? {
+        //     (txn.get_blob(base_hash).await?.get_data(), ObjectType::Blob)
+        // } else if txn.has_commit(base_hash).await? {
+        //     (txn.get_commit(base_hash).await?.get_data(), ObjectType::Commit)
+        // } else if txn.has_tree(base_hash).await? {
+        //     (txn.get_tree(base_hash).await?.get_data(), ObjectType::Tree)
+        // } else if txn.has_tag(base_hash).await? {
+        //     (txn.get_tag(base_hash).await?.get_data(), ObjectType::Tag)
+        // } else {
+        //     return Err(GitInnerError::MissingBaseObject);
+        // };
         let (base_obj_bytes, obj) = match resolved_ofs.iter().find(|(_, (hash, _, _))| hash == base_hash) {
             Some((_, (_, base_obj_bytes, obj))) => (base_obj_bytes.clone(), obj.clone()),
             None => {
@@ -34,7 +45,6 @@ impl RefDelta {
                 } else if txn.has_tag(base_hash).await? {
                     (txn.get_tag(base_hash).await?.get_data(), ObjectType::Tag)
                 } else {
-                    dbg!(&base_hash);
                     return Err(GitInnerError::MissingBaseObject);
                 }
             }

@@ -3,6 +3,7 @@ use bincode::{Decode, Encode};
 use bstr::ByteSlice;
 use chrono::Offset;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::fmt::{Debug, Display};
 use std::str::FromStr;
 
@@ -60,19 +61,20 @@ pub struct Signature {
 }
 
 impl Display for Signature {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let date =
-            chrono::DateTime::<chrono::Utc>::from_timestamp(self.timestamp as i64, 0).unwrap();
-        writeln!(
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
             f,
-            "{} <{}> Data: {} {}",
-            self.name, self.email, date, self.timezone
+            "{} <{}> {} {}",
+            self.name,
+            self.email,
+            self.timestamp,
+            self.timezone
         )
     }
 }
 
 impl Debug for Signature {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Display::fmt(self, f)
     }
 }

@@ -1,6 +1,6 @@
 use crate::objects::ObjectTrait;
 use crate::objects::types::ObjectType;
-use crate::sha::{HashValue, HashVersion};
+use crate::sha::{HashValue, HashVersion, Sha};
 use bytes::Bytes;
 use std::fmt::Display;
 
@@ -39,11 +39,11 @@ impl ObjectTrait for Blob {
 
 impl Blob {
     pub fn parse(input: Bytes, version: HashVersion) -> Blob {
-        let mut hash_input = Vec::new();
-        hash_input.extend_from_slice(format!("blob {}\0", input.len()).as_bytes());
-        hash_input.extend_from_slice(&input);
-        let id = version.hash(Bytes::from(hash_input));
-        Blob { id, data: input }
+        let mut hash = version.default();
+        hash.update(format!("blob {}\0", input.len()).as_bytes());
+        hash.update(&input);
+         hash.finalize();
+        Blob { id: hash, data: input }
     }
 }
 
