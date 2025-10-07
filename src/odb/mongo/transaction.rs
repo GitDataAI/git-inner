@@ -49,12 +49,14 @@ impl Odb for OdbMongoTransaction {
     }
 
     async fn get_commit(&self, hash: &HashValue) -> Result<Commit, GitInnerError> {
+        let mut session = self.session.lock().await;
         let result = self
             .commit
             .find_one(doc! {
                 "repo_uid": self.repo_uid,
-                "hash": hash.to_string()
+                "hash": mongodb::bson::to_bson(&hash)?
             })
+            .session(&mut *session)
             .await
             .map_err(|e| GitInnerError::MongodbError(format!("{}", e)))?;
         match result {
@@ -64,12 +66,14 @@ impl Odb for OdbMongoTransaction {
     }
 
     async fn has_commit(&self, hash: &HashValue) -> Result<bool, GitInnerError> {
+        let mut session = self.session.lock().await;
         let result = self
             .commit
             .find_one(doc! {
                 "repo_uid": self.repo_uid,
-                "hash": hash.to_string()
+                "hash": mongodb::bson::to_bson(&hash)?
             })
+            .session(&mut *session)
             .await
             .map_err(|e| GitInnerError::MongodbError(format!("{}", e)))?;
         match result {
@@ -98,12 +102,15 @@ impl Odb for OdbMongoTransaction {
     }
 
     async fn get_tag(&self, hash: &HashValue) -> Result<Tag, GitInnerError> {
+        let mut session = self.session.lock().await;
+
         let result = self
             .tag
             .find_one(doc! {
                 "repo_uid": self.repo_uid,
-                "hash": hash.to_string()
+                "hash": mongodb::bson::to_bson(&hash)?
             })
+            .session(&mut *session)
             .await
             .map_err(|e| GitInnerError::MongodbError(format!("{}", e)))?;
         match result {
@@ -113,12 +120,14 @@ impl Odb for OdbMongoTransaction {
     }
 
     async fn has_tag(&self, hash: &HashValue) -> Result<bool, GitInnerError> {
+        let mut session = self.session.lock().await;
         let result = self
             .tag
             .find_one(doc! {
                 "repo_uid": self.repo_uid,
-                "hash": hash.to_string()
+                "hash": mongodb::bson::to_bson(&hash)?
             })
+            .session(&mut *session)
             .await
             .map_err(|e| GitInnerError::MongodbError(format!("{}", e)))?;
         match result {
@@ -147,12 +156,14 @@ impl Odb for OdbMongoTransaction {
     }
 
     async fn get_tree(&self, hash: &HashValue) -> Result<Tree, GitInnerError> {
+        let mut session = self.session.lock().await;
         let result = self
             .tree
             .find_one(doc! {
                 "repo_uid": self.repo_uid,
-                "hash": hash.to_string()
+                "hash": mongodb::bson::to_bson(&hash)?
             })
+            .session(&mut *session)
             .await
             .map_err(|e| GitInnerError::MongodbError(format!("{}", e)))?;
         match result {
@@ -162,12 +173,14 @@ impl Odb for OdbMongoTransaction {
     }
 
     async fn has_tree(&self, hash: &HashValue) -> Result<bool, GitInnerError> {
+        let mut session = self.session.lock().await;
         let result = self
             .tree
             .find_one(doc! {
                 "repo_uid": self.repo_uid,
-                "hash": hash.to_string()
+                "hash": mongodb::bson::to_bson(&hash)?
             })
+            .session(&mut *session)
             .await
             .map_err(|e| GitInnerError::MongodbError(format!("{}", e)))?;
         match result {
@@ -191,11 +204,25 @@ impl Odb for OdbMongoTransaction {
 
     async fn get_blob(&self, hash: &HashValue) -> Result<Blob, GitInnerError> {
         let path = format!("{}/{}", self.repo_uid, hash.to_string());
-        let result = self
+        let result = match self
             .store
             .get(&Path::from(path))
-            .await
-            .map_err(|e| GitInnerError::ObjectStoreError(format!("{}", e)))?;
+            .await{
+            Ok(result) => result,
+            Err(_) => {
+                let txn_path = format!("{}/txn.{}/{}", self.repo_uid, self.id, hash.to_string());
+                let txn_result = self
+                    .store
+                    .get(&Path::from(txn_path))
+                    .await;
+                match txn_result {
+                    Ok(result) => result,
+                    Err(e) => {
+                        return Err(GitInnerError::ObjectStoreError(format!("{}", e)));
+                    }
+                }
+            }
+        };
         Ok(Blob {
             id: hash.clone(),
             data: result
@@ -208,7 +235,9 @@ impl Odb for OdbMongoTransaction {
     async fn has_blob(&self, hash: &HashValue) -> Result<bool, GitInnerError> {
         let path = format!("{}/{}", self.repo_uid, hash.to_string());
         let result = self.store.head(&Path::from(path)).await;
-        Ok(result.is_ok())
+        let txn_path = format!("{}/txn.{}/{}", self.repo_uid, self.id,hash.to_string());
+        let txn_result = self.store.head(&Path::from(txn_path)).await;
+        Ok(result.is_ok() || txn_result.is_ok())
     }
 
     async fn begin_transaction(&self) -> Result<Box<dyn OdbTransaction>, GitInnerError> {
