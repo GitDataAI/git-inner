@@ -13,6 +13,21 @@ use serde::{Deserialize, Serialize};
 pub struct RefsQuery {
     service: TransactionService,
 }
+/// Handle a refs advertisement request for a repository over HTTP.
+///
+/// Authenticates the request according to the requested transaction service,
+/// determines the Git protocol version from the "Git-Protocol" header,
+/// initiates a transaction to advertise refs, collects the resulting packet data,
+/// and returns an HTTP response with cache-control headers and a content type
+/// appropriate for the requested transaction service.
+///
+/// # Examples
+///
+/// ```no_run
+/// // Call the handler from an async context with an actix request, path, app state,
+/// // and parsed query. Constructing those values is omitted for brevity.
+/// // let response = refs(req, path, app, query).await;
+/// ```
 pub async fn refs(
     req: HttpRequest,
     path: Path<(String, String)>,

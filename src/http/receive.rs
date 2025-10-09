@@ -12,6 +12,34 @@ use async_stream::stream;
 use std::io;
 use tokio_stream::StreamExt;
 
+/// Handle an HTTP Git "receive-pack" request for a repository and stream the service result.
+///
+/// This endpoint looks up the target repository, optionally enforces HTTP Basic authentication
+/// (returns `401` with `WWW-Authenticate` if missing/invalid, `403` if credentials grant only read
+/// access), forwards the request payload to the repository's receive-pack transaction, and returns
+/// a streaming `HttpResponse` with the service output.
+///
+/// - `404 Not Found` when the repository cannot be located.
+/// - `401 Unauthorized` when authentication is required but missing or invalid.
+/// - `403 Forbidden` when authentication succeeds but grants only read access.
+///
+/// # Examples
+///
+/// ```
+/// use actix_web::{web, App, HttpServer};
+///
+/// async fn main() -> std::io::Result<()> {
+///     HttpServer::new(|| {
+///         App::new().route(
+///             "/{namespace}/{repo}/git-receive-pack",
+///             web::post().to(crate::http::receive::receive_pack),
+///         )
+///     })
+///     .bind(("127.0.0.1", 8080))?
+///     .run()
+///     .await
+/// }
+/// ```
 pub async fn receive_pack(
     mut payload: Payload,
     path: web::Path<(String, String)>,
