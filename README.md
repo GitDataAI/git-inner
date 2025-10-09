@@ -1,8 +1,8 @@
-# Git-Inner: A High-Performance Git Implementation in Rust
+# Git-FS: A High-Performance Git Implementation in Rust
 
 **Project Positioning: A high-performance, scalable, GitServer-like core service implemented in Rust.**
 
-`git-inner` aims to provide a modern, high-performance, and secure Git repository management core, serving as a cornerstone for cloud-native development platforms and large-scale code hosting services. By leveraging the memory safety and concurrency advantages of the Rust language, we are committed to surpassing existing solutions in performance and stability.
+`git-FS` aims to provide a modern, high-performance, and secure Git repository management core, serving as a cornerstone for cloud-native development platforms and large-scale code hosting services. By leveraging the memory safety and concurrency advantages of the Rust language, we are committed to surpassing existing solutions in performance and stability.
 
 ---
 
@@ -56,7 +56,7 @@ Based on the current project structure, here is the development status and techn
 2.  **Clone the Project**:
     ```bash
     git clone <repository_url>
-    cd git-inner
+    cd git-FS
     ```
 3.  **Build and Test**:
     ```bash
@@ -69,24 +69,6 @@ Based on the current project structure, here is the development status and techn
 4.  **Dependencies**:
     - `openssl`
     - (Optional) `mongodb` for `odb/mongo` backend.
-
----
-
-## Development Roadmap
-
-### v0.2.0 - "Read" Operations & Core API Stabilization
-- **Priorities**:
-    1.  [P0] Complete the full parsing functionality of the `pack` module.
-    2.  [P0] Stabilize the read-only API of the `repository` module.
-    3.  [P1] Enhance the `git-upload-pack` (i.e., `git fetch`/`clone`) functionality in the `http` module.
-    4.  [P2] Establish an initial benchmark test suite.
-
-### v0.3.0 - "Write" Operations & Initial RPC
-- **Priorities**:
-    1.  [P0] Complete the `transaction/receive_pack` module to support `git push`.
-    2.  [P0] Implement initial packfile generation capabilities.
-    3.  [P1] Introduce `tonic` and `prost` to design and implement the first version of the RPC interface.
-    4.  [P2] Implement `pre-receive` and `post-receive` hooks.
 
 ---
 
