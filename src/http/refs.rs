@@ -1,14 +1,13 @@
+use crate::auth::AccessLevel;
 use crate::callback::CallBack;
 use crate::serve::AppCore;
 use crate::transaction::{GitProtoVersion, ProtocolType, Transaction, TransactionService};
+use actix_web::http::header::Header;
 use actix_web::web::{Data, Path};
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
-use actix_web::error::ParseError;
-use actix_web::http::header::Header;
 use actix_web_httpauth::headers::authorization::{Authorization, Basic};
 use bytes::BytesMut;
 use serde::{Deserialize, Serialize};
-use crate::auth::AccessLevel;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct RefsQuery {
