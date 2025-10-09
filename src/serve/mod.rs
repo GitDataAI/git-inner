@@ -3,12 +3,14 @@ use crate::error::GitInnerError;
 use crate::repository::Repository;
 use async_trait::async_trait;
 use tokio::sync::OnceCell;
+use crate::auth::Auth;
 
 pub static APP: OnceCell<AppCore> = OnceCell::const_new();
 
 #[derive(Clone)]
 pub struct AppCore {
     pub repo_store: Arc<Box<dyn RepoStore>>,
+    pub auth: Option<Arc<Box<dyn Auth>>>,
 }
 
 #[async_trait]
@@ -18,9 +20,11 @@ pub trait RepoStore:Send + Sync + 'static  {
 
 
 impl AppCore {
-    /// Creates a new AppCore that holds the provided repository store.
+    /// Create a new AppCore containing the given repository store and optional auth component.
     ///
-    /// The `repo_store` is stored as an `Arc<Box<dyn RepoStore>>` and used by the AppCore for repository access.
+    /// The `repo_store` is stored internally and used to access repositories. The `auth` parameter,
+    /// when `Some`, provides an authentication component used by the application; use `None` if no
+    /// authentication is required.
     ///
     /// # Examples
     ///
@@ -38,10 +42,10 @@ impl AppCore {
     /// }
     ///
     /// let store = Arc::new(Box::new(DummyStore));
-    /// let app = crate::AppCore::new(store);
+    /// let app = crate::AppCore::new(store, None);
     /// ```
-    pub fn new(repo_store: Arc<Box<dyn RepoStore>>) -> Self {
-        Self { repo_store }
+    pub fn new(repo_store: Arc<Box<dyn RepoStore>>, auth: Option<Arc<Box<dyn Auth>>>) -> Self {
+        Self { repo_store, auth }
     }
     /// Initialize the global application singleton with this `AppCore`.
     ///

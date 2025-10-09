@@ -15,6 +15,7 @@ pub mod serve;
 pub mod http;
 pub mod ssh;
 pub mod config;
+pub mod auth;
 
 /// Encode a string as a Git-style pkt-line and return it as a BytesMut buffer.
 ///

@@ -11,6 +11,7 @@ pub struct Repository {
     pub odb: Arc<Box<dyn Odb>>,
     pub refs: Arc<Box<dyn RefsManager>>,
     pub hash_version: HashVersion,
+    pub is_public: bool,
 }
 
 pub mod refs;
