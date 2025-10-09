@@ -42,6 +42,8 @@ pub enum GitInnerError {
     Other(String),
     RusshError(String),
     SshServerStartError(String),
+    AppInitError,
+    AppNotInit,
 }
 
 impl From<bson::ser::Error> for GitInnerError {

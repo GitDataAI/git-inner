@@ -24,6 +24,18 @@ impl SshServer {
             })?;
         Ok(())
     }
+    pub async fn new() -> Result<Self, GitInnerError> {
+        let app = AppCore::app()?;
+        Ok(Self {
+            core: app,
+        })
+    }
+    pub async fn ssh_spawn() -> Result<(), GitInnerError> {
+        Self::new()
+            .await?
+            .run()
+            .await
+    }
 }
 
 
