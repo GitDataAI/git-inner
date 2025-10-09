@@ -40,7 +40,8 @@ pub enum GitInnerError {
     Payload(String),
     NotSupportCommand,
     Other(String),
-    RusshError(String)
+    RusshError(String),
+    SshServerStartError(String),
 }
 
 impl From<bson::ser::Error> for GitInnerError {
