@@ -24,6 +24,14 @@ flate2 = "1.1.2"
 
 
 actix-web = { version = "4.11.0", features = [] }
+russh = { version = "0.54.3",default-features = false, features = [
+    "flate2",
+    "ring",
+    "legacy-ed25519-pkcs8-parser",
+    "des",
+    "dsa",
+    "rsa",
+] }
 tracing = { version = "0.1.41", features = [] }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 mongodb = { version = "3", features = [] }

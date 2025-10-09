@@ -40,10 +40,17 @@ pub enum GitInnerError {
     Payload(String),
     NotSupportCommand,
     Other(String),
+    RusshError(String)
 }
 
 impl From<bson::ser::Error> for GitInnerError {
     fn from(e: bson::ser::Error) -> Self {
         GitInnerError::BJSONERROR(e)
+    }
+}
+
+impl From<russh::Error> for GitInnerError {
+    fn from(e: russh::Error) -> Self {
+        GitInnerError::RusshError(format!("{}", e))
     }
 }
