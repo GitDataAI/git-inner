@@ -12,6 +12,30 @@ use crate::serve::AppCore;
 use crate::transaction::{GitProtoVersion, ProtocolType, Transaction, TransactionService};
 use crate::transaction::TransactionService::UploadPack;
 
+/// Handle an HTTP Git "upload-pack" request for a repository and stream the Git service response.
+///
+/// This handler:
+/// - Looks up the repository by (namespace, repo_name) and returns 404 if not found.
+/// - If authentication is configured and the repository is not public, enforces HTTP Basic auth and returns 401 on failure.
+/// - Determines Git protocol version from the `Git-Protocol` request header (defaults to version 1).
+/// - Starts an UploadPack transaction that consumes the request payload and produces a streamed response sent to the client.
+///
+/// # Examples
+///
+/// ```no_run
+/// use actix_web::{web, App, HttpServer};
+///
+/// #[actix_web::main]
+/// async fn main() -> std::io::Result<()> {
+///     HttpServer::new(|| {
+///         App::new()
+///             .route("/{namespace}/{repo}/git-upload-pack", web::post().to(crate::upload_pack))
+///     })
+///     .bind(("127.0.0.1", 8080))?
+///     .run()
+///     .await
+/// }
+/// ```
 pub async fn upload_pack(
     mut payload: Payload,
     path: web::Path<(String, String)>,

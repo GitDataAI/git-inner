@@ -43,6 +43,26 @@ impl MongoRepoManager {
 
 #[async_trait]
 impl RepoStore for MongoRepoManager {
+    /// Retrieves repository metadata and constructs a Repository backed by MongoDB and the shared object store.
+    ///
+    /// On success returns a Repository populated from the MongoDB document for the given `namespace` and `name`.
+    ///
+    /// Errors:
+    /// - `GitInnerError::MongodbError` if the MongoDB query fails.
+    /// - `GitInnerError::ObjectNotFound(HashVersion::Sha1.default())` if no repository document matches the query.
+    /// - `GitInnerError::HashVersionError` if the stored `hash_version` is unsupported.
+    /// - `GitInnerError::UuidError` if the repository UID cannot be converted to a UUID.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use std::sync::Arc;
+    /// # async fn example_call(manager: &crate::serve::mongo::MongoRepoManager) -> Result<(), crate::error::GitInnerError> {
+    /// let repo = manager.repo("my_namespace".to_string(), "my_repo".to_string()).await?;
+    /// println!("Loaded repo default branch: {}", repo.default_branch);
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn repo(&self, namespace: String, name: String) -> Result<Repository, GitInnerError> {
         let mongo_repo = self
             .repo
