@@ -19,6 +19,32 @@ pub struct SshServer {
 
 
 impl SshServer {
+    /// Starts the SSH server using the configured host, port, and server key.
+    ///
+    /// If a server public key is configured the function uses it; otherwise it generates a new Ed25519 key,
+    /// persists the new public key to the global configuration, and uses that key. The server is configured
+    /// with large channel and event buffers and a short authentication rejection timeout before it begins
+    /// listening on the configured address. The function returns an error if key decoding/encoding, configuration
+    /// persistence, or server startup fails.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` on successful startup, `Err(GitInnerError::SshServerStartError)` if the server fails to start.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use tokio::runtime::Runtime;
+    /// # use your_crate::ssh::service::SshServer;
+    /// # fn main() {
+    /// let rt = Runtime::new().unwrap();
+    /// rt.block_on(async {
+    ///     let mut server = SshServer::new().await.unwrap();
+    ///     // Starts the server (may bind to configured address); in tests/CI this may fail if port is unavailable.
+    ///     let _ = server.run().await;
+    /// });
+    /// # }
+    /// ```
     pub async fn run(&mut self) -> Result<(), GitInnerError> {
         if !self.config.enabled {
             warn!("SSH server is disabled");
@@ -73,6 +99,17 @@ impl SshServer {
             })?;
         Ok(())
     }
+    /// Creates an SshServer initialized from the global application core and the current SSH configuration.
+    ///
+    /// # Returns
+    /// `SshServer` initialized with the application core and the current SSH configuration, or a `GitInnerError` if acquiring the application core fails.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use futures::executor::block_on;
+    /// let server = block_on(crate::ssh::service::SshServer::new()).unwrap();
+    /// ```
     pub async fn new() -> Result<Self, GitInnerError> {
         let app = AppCore::app()?;
         let cfg = AppConfig::ssh();
@@ -81,6 +118,23 @@ impl SshServer {
             config: cfg.clone(),
         })
     }
+    /// Create and run an SSH server using the current application configuration.
+    ///
+    /// Starts the server (including key handling and listener setup) and runs it until it stops or an error occurs.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` on successful startup and normal shutdown, `Err(GitInnerError)` if initialization or runtime fails.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     SshServer::ssh_spawn().await?;
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn ssh_spawn() -> Result<(), GitInnerError> {
         Self::new()
             .await?
@@ -93,6 +147,18 @@ impl SshServer {
 impl Server for SshServer {
     type Handler = SshHandler;
 
+    /// Creates a new SSH handler for an incoming connection.
+    ///
+    /// The returned handler is initialized with a clone of the server's core state and the
+    /// optional peer socket address; `service` and `transaction` are unset.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// // Given a mutable `SshServer` named `server`:
+    /// let handler = server.new_client(Some("127.0.0.1:22".parse().unwrap()));
+    /// assert_eq!(handler.addr.unwrap().ip().to_string(), "127.0.0.1");
+    /// ```
     fn new_client(&mut self, peer_addr: Option<SocketAddr>) -> Self::Handler {
         SshHandler {
             core: self.core.clone(),
