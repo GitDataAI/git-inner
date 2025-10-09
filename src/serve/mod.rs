@@ -3,12 +3,14 @@ use crate::error::GitInnerError;
 use crate::repository::Repository;
 use async_trait::async_trait;
 use tokio::sync::OnceCell;
+use crate::auth::Auth;
 
 pub static APP: OnceCell<AppCore> = OnceCell::const_new();
 
 #[derive(Clone)]
 pub struct AppCore {
     pub repo_store: Arc<Box<dyn RepoStore>>,
+    pub auth: Option<Arc<Box<dyn Auth>>>,
 }
 
 #[async_trait]
@@ -40,8 +42,8 @@ impl AppCore {
     /// let store = Arc::new(Box::new(DummyStore));
     /// let app = crate::AppCore::new(store);
     /// ```
-    pub fn new(repo_store: Arc<Box<dyn RepoStore>>) -> Self {
-        Self { repo_store }
+    pub fn new(repo_store: Arc<Box<dyn RepoStore>>, auth: Option<Arc<Box<dyn Auth>>>) -> Self {
+        Self { repo_store, auth }
     }
     /// Initialize the global application singleton with this `AppCore`.
     ///

@@ -1,10 +1,13 @@
+use crate::auth::AccessLevel;
 use crate::callback::CallBack;
 use crate::error::GitInnerError;
 use crate::serve::AppCore;
 use crate::transaction::TransactionService::ReceivePack;
 use crate::transaction::{GitProtoVersion, ProtocolType, Transaction};
+use actix_web::http::header::Header;
 use actix_web::web::Payload;
 use actix_web::{web, HttpResponse, Responder};
+use actix_web_httpauth::headers::authorization::{Authorization, Basic};
 use async_stream::stream;
 use std::io;
 use tokio_stream::StreamExt;
@@ -13,15 +16,44 @@ pub async fn receive_pack(
     mut payload: Payload,
     path: web::Path<(String, String)>,
     app: web::Data<AppCore>,
+    req: actix_web::HttpRequest,
 ) -> impl Responder {
-    let (namespace, repo) = path.into_inner();
-    let repo = match app.repo_store.repo(namespace, repo).await {
+    let (namespace, repo_name) = path.into_inner();
+    let repo = match app.repo_store.repo(namespace.clone(), repo_name.clone()).await {
         Ok(repo) => repo,
         Err(err) => {
             dbg!(err);
             return HttpResponse::NotFound().body("Repo not found");
         }
     };
+    if let Some(auth) = app.auth.clone() {
+        match Authorization::<Basic>::parse(&req) {
+            Ok(basic) => {
+                let scheme = basic.into_scheme();
+                let username = scheme.user_id().to_string();
+                let password = scheme.password().unwrap_or("").to_string();
+                match auth.authenticate(&username, &password, &namespace, &repo_name).await {
+                    Ok(level) => {
+                        match level {
+                            AccessLevel::Read =>
+                                return HttpResponse::Forbidden().body("Forbidden"),
+                            _=> {}
+                        }
+                    }
+                    Err(_) => {
+                        return HttpResponse::Unauthorized()
+                            .insert_header(("WWW-Authenticate", r#"Basic realm="Restricted""#))
+                            .body("Unauthorized");
+                    }
+                }
+            }
+            Err(_) => {
+                return HttpResponse::Unauthorized()
+                    .insert_header(("WWW-Authenticate", r#"Basic realm="Restricted""#))
+                    .body("Unauthorized");
+            }
+        }
+    }
     let call_back = CallBack::new(1024);
     let mut transaction = Transaction {
         service: ReceivePack,

@@ -18,7 +18,8 @@ pub struct MongoRepository {
     pub namespace: String,
     pub uid: Uuid,
     pub hash_version: i32,
-    pub default_branch: String
+    pub default_branch: String,
+    pub is_public: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -81,6 +82,7 @@ impl RepoStore for MongoRepoManager {
             odb: Arc::new(Box::new(odb)),
             refs: Arc::new(Box::new(refs)),
             hash_version,
+            is_public: mongo_repo.is_public,
         })
     }
 }

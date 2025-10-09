@@ -15,7 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .await?;
     let mongodb = mongodb::Client::with_options(optional)?;
     let manager = MongoRepoManager::new(mongodb, Arc::new(Box::new(store)));
-    let core = AppCore::new(Arc::new(Box::new(manager)));
+    let core = AppCore::new(Arc::new(Box::new(manager)), None);
     let http = HttpServer::new("0.0.0.0".to_string(), 3000, core);
     tokio::select! {
         result = http => {

@@ -3,8 +3,12 @@ use crate::serve::AppCore;
 use crate::transaction::{GitProtoVersion, ProtocolType, Transaction, TransactionService};
 use actix_web::web::{Data, Path};
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use actix_web::error::ParseError;
+use actix_web::http::header::Header;
+use actix_web_httpauth::headers::authorization::{Authorization, Basic};
 use bytes::BytesMut;
 use serde::{Deserialize, Serialize};
+use crate::auth::AccessLevel;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct RefsQuery {
@@ -16,9 +20,10 @@ pub async fn refs(
     app: Data<AppCore>,
     query: web::Query<RefsQuery>,
 ) -> impl Responder {
-    let (namespace, repo) = path.into_inner();
+    let (namespace, repo_name) = path.into_inner();
+
     let start = std::time::Instant::now();
-    let repo = match app.repo_store.repo(namespace, repo).await {
+    let repo = match app.repo_store.repo(namespace.clone(), repo_name.clone()).await {
         Ok(repo) => repo,
         Err(err) => {
             dbg!(err);
@@ -26,6 +31,66 @@ pub async fn refs(
             return HttpResponse::NotFound().body("Repo not found");
         }
     };
+    if let Some(auth) = app.auth.clone() {
+        match query.service {
+            TransactionService::UploadPack | TransactionService::UploadPackLs => {
+                if !repo.is_public {
+                    match Authorization::<Basic>::parse(&req) {
+                        Ok(basic) => {
+                            let scheme = basic.into_scheme();
+                            let username = scheme.user_id().to_string();
+                            let password = scheme.password().unwrap_or("").to_string();
+                            match auth.authenticate(&username, &password, &namespace, &repo_name).await {
+                                Ok(level) => {
+                                    match level {
+                                        _=> {}
+                                    }
+                                }
+                                Err(_) => {
+                                    return HttpResponse::Unauthorized()
+                                        .insert_header(("WWW-Authenticate", r#"Basic realm="Restricted""#))
+                                        .body("Unauthorized");
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            return HttpResponse::Unauthorized()
+                                .insert_header(("WWW-Authenticate", r#"Basic realm="Restricted""#))
+                                .body("Unauthorized");
+                        }
+                    }
+                }
+            }
+            TransactionService::ReceivePack | TransactionService::ReceivePackLs => {
+                match Authorization::<Basic>::parse(&req) {
+                    Ok(basic) => {
+                        let scheme = basic.into_scheme();
+                        let username = scheme.user_id().to_string();
+                        let password = scheme.password().unwrap_or("").to_string();
+                        match auth.authenticate(&username, &password, &namespace, &repo_name).await {
+                            Ok(level) => {
+                                match level {
+                                    AccessLevel::Read =>
+                                        return HttpResponse::Forbidden().body("Forbidden"),
+                                    _=> {}
+                                }
+                            }
+                            Err(_) => {
+                                return HttpResponse::Unauthorized()
+                                    .insert_header(("WWW-Authenticate", r#"Basic realm="Restricted""#))
+                                    .body("Unauthorized");
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        return HttpResponse::Unauthorized()
+                            .insert_header(("WWW-Authenticate", r#"Basic realm="Restricted""#))
+                            .body("Unauthorized");
+                    }
+                }
+            }
+        }
+    }
     let version = match req.headers().get("Git-Protocol") {
         Some(header) => {
             if header.to_str().unwrap().contains("version=2") {
