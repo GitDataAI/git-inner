@@ -14,6 +14,7 @@ pub mod capability;
 pub mod serve;
 pub mod http;
 pub mod ssh;
+pub mod config;
 
 pub fn write_pkt_line(data: String) -> BytesMut {
     let mut buf = BytesMut::new();

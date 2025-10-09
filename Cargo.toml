@@ -39,3 +39,5 @@ object_store = { version = "0.12.3", features = ["cloud"] }
 futures-util = "0.3.31"
 serde_json = { version = "1.0.143", features = [] }
 log = { version = "0.4.27", features = [] }
+lazy_static = { version = "1", features = [] }
+toml = { version = "0.9", features = [] }
