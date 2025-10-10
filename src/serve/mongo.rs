@@ -53,7 +53,7 @@ pub async fn init_app_by_mongodb() {
     let mongodb = mongodb::Client::with_options(optional)
         .expect("Failed to create MongoDB client");
     let manager = MongoRepoManager::new(mongodb, Arc::new(Box::new(store)));
-    let core = AppCore::new(Arc::new(Box::new(manager)));
+    let core = AppCore::new(Arc::new(Box::new(manager)), None);
     let _ = core.init();
     
 }
