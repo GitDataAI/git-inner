@@ -13,7 +13,20 @@ pub struct HttpServer {
 
 
 impl HttpServer {
-    pub fn new(addr: String, port: u16, core: AppCore) -> Self {
+    /// Creates a new HttpServer configured for the given address and port.
+    ///
+    /// The function obtains the globally initialized `AppCore` and stores a clone
+    /// inside the returned `HttpServer`. It will panic with `"App Not Initialized"`
+    /// if no global `AppCore` has been initialized.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// let server = HttpServer::new("127.0.0.1".to_string(), 8080);
+    /// assert_eq!(server.bind_addr(), "127.0.0.1:8080");
+    /// ```
+    pub fn new(addr: String, port: u16) -> Self {
+        let core = AppCore::app().expect("App Not Initialized");
         Self {
             addr,
             port,

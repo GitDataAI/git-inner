@@ -1,49 +1,62 @@
+use log::{error, info};
+use tokio::select;
+use tracing_subscriber::{EnvFilter, Layer};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use git_in::control::Control;
 use git_in::http::HttpServer;
-use git_in::serve::mongo::MongoRepoManager;
-use git_in::serve::AppCore;
-use object_store::local::LocalFileSystem;
-use std::sync::Arc;
-/// Starts the application: initializes logging, local storage, and MongoDB; constructs the repository
-/// manager and application core; then runs an HTTP server bound to 0.0.0.0:3000 until the server stops
-/// or the process receives a Ctrl+C signal.
+use git_in::logs::LogsStore;
+use git_in::serve::mongo::init_app_by_mongodb;
+
+/// Starts the application, sets up logging, initializes components, runs the HTTP server and metrics collection, and handles graceful shutdown.
 ///
-/// The function prints an error message if the HTTP server future resolves to an error and exits the
-/// process immediately when a Ctrl+C signal is received.
+/// Configures tracing from the `RUST_LOG` environment variable and a console subscriber, invokes `init_app_by_mongodb`, constructs a `LogsStore` and `Control`, spawns the HTTP server task and a metrics collection task, and then waits for either the HTTP task to finish, the metrics collection to finish, or a CTRL+C signal to trigger a graceful shutdown via `Control::stop()`.
 ///
 /// # Returns
 ///
-/// `Ok(())` after the server future completes or shutdown handling finishes; an `Err` is returned if
-/// initialization fails (for example, creating the local file store or connecting to MongoDB).
+/// `Ok(())` on normal shutdown; an error if initialization (for example, creating the `LogsStore`) fails.
 ///
 /// # Examples
 ///
 /// ```no_run
-/// // Run the compiled binary; this function is the program's entry point and is not called directly.
+/// // This function is the program entry point; run the compiled binary to start the server.
 /// ```
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
+    dotenv::dotenv().ok();
+    let tracing_level = std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string());
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .with_target(false)
+        .with_filter(EnvFilter::new(tracing_level));
+    let console_layer = console_subscriber::spawn();
+    tracing_subscriber::registry()
+        .with(fmt_layer)
+        .with(console_layer)
         .init();
-    let store = LocalFileSystem::new_with_prefix("./data")?;
-    let optional = mongodb::options::ClientOptions::parse(
-        "mongodb://root:root%402025@172.29.228.23:27017,172.29.228.23:27018,172.29.228.23:27019/git_inner?replicaSet=rs0&authSource=admin&retryWrites=true&w=majority"
-    )
-        .await?;
-    let mongodb = mongodb::Client::with_options(optional)?;
-    let manager = MongoRepoManager::new(mongodb, Arc::new(Box::new(store)));
-    let core = AppCore::new(Arc::new(Box::new(manager)), None);
-    let http = HttpServer::new("0.0.0.0".to_string(), 3000, core);
-    tokio::select! {
-        result = http => {
-            if let Err(e) = result {
-                eprintln!("HTTP server error: {}", e);
-            }
+
+
+    init_app_by_mongodb().await;
+    let log_store = LogsStore::new("./logs")?;
+    let control = Control::new(log_store);
+    let http_handle = control.spawn(async move {
+        if let Err(e) = HttpServer::new("0.0.0.0".to_string(), 3000).run().await {
+            error!("Control error: {}", e);
+        } else {
+            info!("HTTP server exited.");
+        }
+    });
+    let collection = control.start_metrics_collection();
+    select! {
+        _ = http_handle => {
+            info!("HTTP server task completed.");
+        }
+        _ = collection => {
+            info!("Metrics logs server task completed.");
         }
         _ = tokio::signal::ctrl_c() => {
-            println!("Received Ctrl+C, shutting down.");
-            std::process::exit(0);
-        },
+            control.stop().await;
+            info!("Shutdown signal received.");
+        }
     }
     Ok(())
 }

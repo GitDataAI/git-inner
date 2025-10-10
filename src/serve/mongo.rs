@@ -9,7 +9,8 @@ use mongodb::{Client, Collection};
 use object_store::ObjectStore;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use crate::serve::RepoStore;
+use object_store::local::LocalFileSystem;
+use crate::serve::{AppCore, RepoStore};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MongoRepository {
@@ -30,6 +31,20 @@ pub struct MongoRepoManager {
 }
 
 impl MongoRepoManager {
+    /// Creates a new MongoRepoManager bound to the "git_inner" database and the "repositories" collection.
+    ///
+    /// The returned manager holds the provided MongoDB client and a shared object store for repository objects.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// use mongodb::Client;
+    /// // assume `store` implements ObjectStore and is already constructed
+    /// let client = Client::with_uri_str("mongodb://localhost:27017").unwrap();
+    /// let store: Arc<Box<dyn ObjectStore>> = /* construct store */ unimplemented!();
+    /// let manager = MongoRepoManager::new(client, store);
+    /// ```
     pub fn new(db_client: Client, store: Arc<Box<dyn ObjectStore>>) -> Self {
         let db = db_client.database("git_inner");
         let repo = db.collection::<MongoRepository>("repositories");
@@ -39,6 +54,38 @@ impl MongoRepoManager {
             store,
         }
     }
+}
+
+/// Initializes application components using MongoDB for metadata and a local filesystem for object storage.
+///
+/// This sets up environment loading, constructs a local file-backed object store at "./data",
+/// parses `MONGODB_URL` for a MongoDB client, creates a `MongoRepoManager` backed by that client
+/// and the object store, builds an `AppCore` with the manager, and runs its initialization routine.
+///
+/// # Examples
+///
+/// ```
+/// # // Example requires the Tokio runtime and a valid MONGODB_URL environment variable.
+/// # // Run with: MONGODB_URL="mongodb://localhost:27017" cargo run --example init
+/// #[tokio::main]
+/// async fn main() {
+///     init_app_by_mongodb().await;
+/// }
+/// ```
+pub async fn init_app_by_mongodb() {
+    dotenv::dotenv().ok();
+    let mongodb_url = dotenv::var("MONGODB_URL").expect("MONGODB_URL must be set");
+    let store = LocalFileSystem::new_with_prefix("./data")
+        .expect("Failed to initialize local storage");
+    let optional = mongodb::options::ClientOptions::parse(mongodb_url)
+        .await
+        .expect("Failed to parse MongoDB client options");
+    let mongodb = mongodb::Client::with_options(optional)
+        .expect("Failed to create MongoDB client");
+    let manager = MongoRepoManager::new(mongodb, Arc::new(Box::new(store)));
+    let core = AppCore::new(Arc::new(Box::new(manager)), None);
+    let _ = core.init();
+    
 }
 
 #[async_trait]

@@ -9,7 +9,7 @@ use tracing::error;
 use crate::callback::CallBack;
 use crate::error::GitInnerError;
 use crate::serve::AppCore;
-use crate::transaction::{GitProtoVersion, ProtocolType, Transaction, TransactionService};
+use crate::transaction::{GitProtoVersion, ProtocolType, Transaction};
 use crate::transaction::TransactionService::UploadPack;
 
 /// Handle an HTTP Git "upload-pack" request for a repository and stream the Git service response.
