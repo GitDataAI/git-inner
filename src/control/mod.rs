@@ -47,12 +47,13 @@ impl Control {
             loop {
                 interval.tick().await;
                 let metrics = task_metrics.cumulative();
-                dbg!();
                 if let Ok(duration) = SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
-                    let _ = logs.put(
+                    if let Err(err) = logs.put(
                         duration.as_secs(),
                         format!("{:?}", metrics).into_bytes()
-                    );
+                    ) {
+                        eprintln!("Failed to log metrics: {}", err);
+                    }
                 }
             }
         }).await.expect("failed to start metrics collection");
