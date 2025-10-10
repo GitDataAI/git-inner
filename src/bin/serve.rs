@@ -8,6 +8,19 @@ use git_in::http::HttpServer;
 use git_in::logs::LogsStore;
 use git_in::serve::mongo::init_app_by_mongodb;
 
+/// Starts the application, sets up logging, initializes components, runs the HTTP server and metrics collection, and handles graceful shutdown.
+///
+/// Configures tracing from the `RUST_LOG` environment variable and a console subscriber, invokes `init_app_by_mongodb`, constructs a `LogsStore` and `Control`, spawns the HTTP server task and a metrics collection task, and then waits for either the HTTP task to finish, the metrics collection to finish, or a CTRL+C signal to trigger a graceful shutdown via `Control::stop()`.
+///
+/// # Returns
+///
+/// `Ok(())` on normal shutdown; an error if initialization (for example, creating the `LogsStore`) fails.
+///
+/// # Examples
+///
+/// ```no_run
+/// // This function is the program entry point; run the compiled binary to start the server.
+/// ```
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     dotenv::dotenv().ok();
