@@ -9,3 +9,5 @@ data
 *.temp
 *.bak
 *.swp
+logs
+.env

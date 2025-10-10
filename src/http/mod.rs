@@ -13,7 +13,8 @@ pub struct HttpServer {
 
 
 impl HttpServer {
-    pub fn new(addr: String, port: u16, core: AppCore) -> Self {
+    pub fn new(addr: String, port: u16) -> Self {
+        let core = AppCore::app().expect("App Not Initialized");
         Self {
             addr,
             port,

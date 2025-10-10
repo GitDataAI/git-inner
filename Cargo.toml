@@ -20,9 +20,11 @@ uuid = { version = "1.18.0", features = ["v4"] }
 async-trait = "0.1"
 tokio-stream = { version = "0.1.17", features = ["full"] }
 async-stream = { version = "0.3.6", features = [] }
+tokio-metrics = { version = "0.4.4", features = ["tokio","metrics-rs-integration"] }
+lru = { version = "0.16.0", features = [] }
+byteorder = { version = "1.5.0", features = [] }
+console-subscriber = { version = "0.4.1", features = ["grpc-web"] }
 flate2 = "1.1.2"
-
-
 actix-web = { version = "4.11.0", features = [] }
 russh = { version = "0.54.3",default-features = false, features = [
     "flate2",
@@ -32,6 +34,7 @@ russh = { version = "0.54.3",default-features = false, features = [
     "dsa",
     "rsa",
 ] }
+dotenv = { version = "0.15.0", features = [] }
 tracing = { version = "0.1.41", features = [] }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 mongodb = { version = "3", features = [] }

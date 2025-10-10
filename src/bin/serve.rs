@@ -1,32 +1,38 @@
+use log::{error, info};
+use tokio::select;
+use git_in::control::Control;
 use git_in::http::HttpServer;
-use git_in::serve::mongo::MongoRepoManager;
-use git_in::serve::AppCore;
-use object_store::local::LocalFileSystem;
-use std::sync::Arc;
+use git_in::logs::LogsStore;
+use git_in::serve::mongo::init_app_by_mongodb;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
         .init();
-    let store = LocalFileSystem::new_with_prefix("./data")?;
-    let optional = mongodb::options::ClientOptions::parse(
-        "mongodb://root:root%402025@172.29.228.23:27017,172.29.228.23:27018,172.29.228.23:27019/git_inner?replicaSet=rs0&authSource=admin&retryWrites=true&w=majority"
-    )
-        .await?;
-    let mongodb = mongodb::Client::with_options(optional)?;
-    let manager = MongoRepoManager::new(mongodb, Arc::new(Box::new(store)));
-    let core = AppCore::new(Arc::new(Box::new(manager)));
-    let http = HttpServer::new("0.0.0.0".to_string(), 3000, core);
-    tokio::select! {
-        result = http => {
-            if let Err(e) = result {
-                eprintln!("HTTP server error: {}", e);
-            }
+    console_subscriber::init();
+    init_app_by_mongodb().await;
+    let log_store = LogsStore::new("./logs")?;
+    let control = Control::new(log_store);
+    let http_handle = control.spawn(async move {
+        if let Err(e) = HttpServer::new("0.0.0.0".to_string(), 3000).run().await {
+            error!("Control error: {}", e);
+        } else {
+            info!("HTTP server exited.");
+        }
+    });
+    let collection = control.start_metrics_collection();
+    select! {
+        _ = http_handle => {
+            info!("HTTP server task completed.");
+        }
+        _ = collection => {
+            info!("Metrics logs server task completed.");
         }
         _ = tokio::signal::ctrl_c() => {
-            println!("Received Ctrl+C, shutting down.");
-            std::process::exit(0);
-        },
+            control.stop().await;
+            info!("Shutdown signal received.");
+        }
     }
     Ok(())
 }

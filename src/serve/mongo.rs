@@ -9,7 +9,8 @@ use mongodb::{Client, Collection};
 use object_store::ObjectStore;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use crate::serve::RepoStore;
+use object_store::local::LocalFileSystem;
+use crate::serve::{AppCore, RepoStore};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MongoRepository {
@@ -38,6 +39,22 @@ impl MongoRepoManager {
             store,
         }
     }
+}
+
+pub async fn init_app_by_mongodb() {
+    dotenv::dotenv().ok();
+    let mongodb_url = dotenv::var("MONGODB_URL").expect("MONGODB_URL must be set");
+    let store = LocalFileSystem::new_with_prefix("./data")
+        .expect("Failed to initialize local storage");
+    let optional = mongodb::options::ClientOptions::parse(mongodb_url)
+        .await
+        .expect("Failed to parse MongoDB client options");
+    let mongodb = mongodb::Client::with_options(optional)
+        .expect("Failed to create MongoDB client");
+    let manager = MongoRepoManager::new(mongodb, Arc::new(Box::new(store)));
+    let core = AppCore::new(Arc::new(Box::new(manager)));
+    let _ = core.init();
+    
 }
 
 #[async_trait]
