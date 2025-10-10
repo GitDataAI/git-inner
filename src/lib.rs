@@ -15,6 +15,7 @@ pub mod serve;
 pub mod http;
 pub mod ssh;
 pub mod config;
+pub mod auth;
 pub mod control;
 pub mod logs;
 

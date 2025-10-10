@@ -26,6 +26,7 @@ byteorder = { version = "1.5.0", features = [] }
 console-subscriber = { version = "0.4.1", features = ["grpc-web"] }
 flate2 = "1.1.2"
 actix-web = { version = "4.11.0", features = [] }
+actix-web-httpauth = { version = "0.8.2", features = [] }
 russh = { version = "0.54.3",default-features = false, features = [
     "flate2",
     "ring",

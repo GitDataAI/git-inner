@@ -1,8 +1,11 @@
+use crate::auth::AccessLevel;
 use crate::callback::CallBack;
 use crate::serve::AppCore;
 use crate::transaction::{GitProtoVersion, ProtocolType, Transaction, TransactionService};
+use actix_web::http::header::Header;
 use actix_web::web::{Data, Path};
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use actix_web_httpauth::headers::authorization::{Authorization, Basic};
 use bytes::BytesMut;
 use serde::{Deserialize, Serialize};
 
@@ -10,15 +13,31 @@ use serde::{Deserialize, Serialize};
 pub struct RefsQuery {
     service: TransactionService,
 }
+/// Handle a refs advertisement request for a repository over HTTP.
+///
+/// Authenticates the request according to the requested transaction service,
+/// determines the Git protocol version from the "Git-Protocol" header,
+/// initiates a transaction to advertise refs, collects the resulting packet data,
+/// and returns an HTTP response with cache-control headers and a content type
+/// appropriate for the requested transaction service.
+///
+/// # Examples
+///
+/// ```no_run
+/// // Call the handler from an async context with an actix request, path, app state,
+/// // and parsed query. Constructing those values is omitted for brevity.
+/// // let response = refs(req, path, app, query).await;
+/// ```
 pub async fn refs(
     req: HttpRequest,
     path: Path<(String, String)>,
     app: Data<AppCore>,
     query: web::Query<RefsQuery>,
 ) -> impl Responder {
-    let (namespace, repo) = path.into_inner();
+    let (namespace, repo_name) = path.into_inner();
+
     let start = std::time::Instant::now();
-    let repo = match app.repo_store.repo(namespace, repo).await {
+    let repo = match app.repo_store.repo(namespace.clone(), repo_name.clone()).await {
         Ok(repo) => repo,
         Err(err) => {
             dbg!(err);
@@ -26,6 +45,66 @@ pub async fn refs(
             return HttpResponse::NotFound().body("Repo not found");
         }
     };
+    if let Some(auth) = app.auth.clone() {
+        match query.service {
+            TransactionService::UploadPack | TransactionService::UploadPackLs => {
+                if !repo.is_public {
+                    match Authorization::<Basic>::parse(&req) {
+                        Ok(basic) => {
+                            let scheme = basic.into_scheme();
+                            let username = scheme.user_id().to_string();
+                            let password = scheme.password().unwrap_or("").to_string();
+                            match auth.authenticate(&username, &password, &namespace, &repo_name).await {
+                                Ok(level) => {
+                                    match level {
+                                        _=> {}
+                                    }
+                                }
+                                Err(_) => {
+                                    return HttpResponse::Unauthorized()
+                                        .insert_header(("WWW-Authenticate", r#"Basic realm="Restricted""#))
+                                        .body("Unauthorized");
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            return HttpResponse::Unauthorized()
+                                .insert_header(("WWW-Authenticate", r#"Basic realm="Restricted""#))
+                                .body("Unauthorized");
+                        }
+                    }
+                }
+            }
+            TransactionService::ReceivePack | TransactionService::ReceivePackLs => {
+                match Authorization::<Basic>::parse(&req) {
+                    Ok(basic) => {
+                        let scheme = basic.into_scheme();
+                        let username = scheme.user_id().to_string();
+                        let password = scheme.password().unwrap_or("").to_string();
+                        match auth.authenticate(&username, &password, &namespace, &repo_name).await {
+                            Ok(level) => {
+                                match level {
+                                    AccessLevel::Read =>
+                                        return HttpResponse::Forbidden().body("Forbidden"),
+                                    _=> {}
+                                }
+                            }
+                            Err(_) => {
+                                return HttpResponse::Unauthorized()
+                                    .insert_header(("WWW-Authenticate", r#"Basic realm="Restricted""#))
+                                    .body("Unauthorized");
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        return HttpResponse::Unauthorized()
+                            .insert_header(("WWW-Authenticate", r#"Basic realm="Restricted""#))
+                            .body("Unauthorized");
+                    }
+                }
+            }
+        }
+    }
     let version = match req.headers().get("Git-Protocol") {
         Some(header) => {
             if header.to_str().unwrap().contains("version=2") {
