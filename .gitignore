@@ -9,5 +9,5 @@ data
 *.temp
 *.bak
 *.swp
-logs
+/logs
 .env

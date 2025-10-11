@@ -45,3 +45,15 @@ serde_json = { version = "1.0.143", features = [] }
 log = { version = "0.4.27", features = [] }
 lazy_static = { version = "1", features = [] }
 toml = { version = "0.9", features = [] }
+
+tonic = { version = "0.14.1", features = ["server"] }
+prost = { version = "0.14.1", features = ["derive"] }
+tonic-prost = { version = "0.14.1", features = [] }
+tonic-health = { version = "0.14.1", features = [] }
+tonic-types = { version = "0.14.1", features = [] }
+prost-types = { version = "0.14.1", features = [] }
+
+[build-dependencies]
+tonic-prost-build = { version = "0.14.1", features = [] }
+walkdir = { version = "2.5.0", features = [] }
+tonic-build = { version = "0.14.1", features = [] }

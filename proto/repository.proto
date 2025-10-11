@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+import "share.proto";
+
+package gitfs;
+
+service RepositoryService {
+  rpc Init(RepositoryInitRequest) returns (RepositoryInitResponse);
+  rpc SetPublic(RpcRepository) returns (RpcRepository);
+  rpc SetPrivate(RpcRepository) returns (RpcRepository);
+  rpc Delete(RpcRepository) returns (RpcRepository);
+  rpc Info(RepositoryInfoRequest) returns (RpcRepository);
+}
+
+message RepositoryInitRequest {
+  string name = 1;
+  string namespace = 2;
+  bool is_private = 4;
+  string default_branch = 5;
+}
+
+message RepositoryInitResponse {
+  int64 id = 1;
+  string uid = 2;
+  string name = 3;
+  string namespace = 4;
+  bool is_private = 5;
+}
+
+message RepositoryInfoRequest {
+  string name = 1;
+  string namespace = 2;
+}
