@@ -1,0 +1,40 @@
+syntax = "proto3";
+import "share.proto";
+
+package gitfs;
+
+service CommitService {
+  rpc Head(CommitHeadRequest) returns (CommitHeadResponse);
+  rpc Get(CommitGetRequest) returns (CommitGetResponse);
+  rpc Log(CommitLogRequest) returns (CommitLogResponse);
+}
+
+
+message CommitHeadRequest {
+  RpcRepository repository = 1;
+  string branch = 2;
+}
+
+message CommitHeadResponse {
+  RpcCommit commit = 1;
+}
+
+message CommitGetRequest {
+  RpcRepository repository = 1;
+  string hash = 2;
+}
+
+message CommitGetResponse {
+  RpcCommit commit = 1;
+}
+
+message CommitLogRequest {
+  RpcRepository repository = 1;
+  string ref = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message CommitLogResponse {
+  repeated RpcCommit commits = 1;
+}
