@@ -8,6 +8,20 @@ use crate::sha::HashValue;
 
 #[tonic::async_trait]
 impl crate::rpc::gitfs::commit_service_server::CommitService for RpcServiceCore {
+    /// Retrieve the repository's current HEAD commit.
+    ///
+    /// A CommitHeadResponse containing the repository's current head commit as an `RpcCommit`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use tonic::Request;
+    /// # use crate::rpc::gitfs::CommitHeadRequest;
+    /// # async fn demo(svc: &crate::rpc::RpcServiceCore) {
+    /// let req = Request::new(CommitHeadRequest { repository: None });
+    /// let _res = svc.head(req).await;
+    /// # }
+    /// ```
     async fn head(&self, request: Request<CommitHeadRequest>) -> Result<Response<CommitHeadResponse>, Status> {
         let inner = request.into_inner();
         let rpc_repo = inner
@@ -47,6 +61,31 @@ impl crate::rpc::gitfs::commit_service_server::CommitService for RpcServiceCore 
         }))
     }
 
+    /// Fetches the commit identified by `hash` from the provided repository and returns it as an `RpcCommit` inside a `CommitGetResponse`.
+    ///
+    /// Returns a `CommitGetResponse` with its `commit` field set to the requested commit on success.
+    /// Returns a gRPC `Status` error when the repository is missing, the hash is invalid, or commit retrieval fails.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use tonic::Request;
+    /// # use crate::rpc::gitfs::CommitGetRequest;
+    /// # async fn example(svc: &crate::rpc::service::RpcServiceCore) {
+    /// let req = CommitGetRequest {
+    ///     repository: Some(/* RpcRepository */ Default::default()),
+    ///     hash: "0123456789abcdef".to_string(),
+    /// };
+    /// let resp = svc.get(Request::new(req)).await;
+    /// match resp {
+    ///     Ok(response) => {
+    ///         let body = response.into_inner();
+    ///         // `body.commit` contains the retrieved commit
+    ///     }
+    ///     Err(status) => eprintln!("gRPC error: {}", status),
+    /// }
+    /// # }
+    /// ```
     async fn get(&self, request: Request<CommitGetRequest>) -> Result<Response<CommitGetResponse>, Status> {
         let inner = request.into_inner();
         let rpc_repo = inner
@@ -83,6 +122,25 @@ impl crate::rpc::gitfs::commit_service_server::CommitService for RpcServiceCore 
         }))
     }
 
+    /// Traverses commit history from the given reference and returns a paginated list of commits.
+    ///
+    /// The method resolves the provided repository and reference, performs a breadth-first traversal
+    /// of commits starting from that reference, applies the requested `offset` and `limit`, and
+    /// returns the collected commits as `RpcCommit` entries in a `CommitLogResponse`.
+    ///
+    /// # Returns
+    ///
+    /// `CommitLogResponse` containing the matching commits in traversal order.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// // Perform an asynchronous call to the service's `log` method.
+    /// // `service` is an instance of `RpcServiceCore` and `request` is a `tonic::Request<CommitLogRequest>`.
+    /// let response = service.log(request).await;
+    /// let log_response = response.unwrap().into_inner();
+    /// println!("found {} commits", log_response.commits.len());
+    /// ```
     async fn log(&self, request: Request<CommitLogRequest>) -> Result<Response<CommitLogResponse>, Status> {
         let inner = request.into_inner();
         let rpc_repo = inner

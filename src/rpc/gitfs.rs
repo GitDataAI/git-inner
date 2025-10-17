@@ -1085,17 +1085,33 @@ pub enum HashVersion {
     HashV256 = 1,
 }
 impl HashVersion {
-    /// String value of the enum field names used in the ProtoBuf definition.
+    /// Enum variant name as defined in the protobuf.
     ///
-    /// The values are not transformed in any way and thus are considered stable
-    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    /// Returns the original protobuf enum name as a `&'static str`, exactly matching the identifier in the .proto file.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::rpc::gitfs::HashVersion;
+    /// assert_eq!(HashVersion::HashV1.as_str_name(), "HASH_V1");
+    /// assert_eq!(HashVersion::HashV256.as_str_name(), "HASH_V256");
+    /// ```
     pub fn as_str_name(&self) -> &'static str {
         match self {
             Self::HashV1 => "HASH_V1",
             Self::HashV256 => "HASH_V256",
         }
     }
-    /// Creates an enum from field names used in the ProtoBuf definition.
+    /// Converts a Protobuf enum field name to the corresponding `HashVersion` variant.
+    ///
+    /// The input must match the Protobuf field name exactly (e.g., `"HASH_V1"`, `"HASH_V256"`).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let v = HashVersion::from_str_name("HASH_V1");
+    /// assert_eq!(v, Some(HashVersion::HashV1));
+    /// ```
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
             "HASH_V1" => Some(Self::HashV1),
@@ -1735,7 +1751,22 @@ pub mod ssh_service_client {
         inner: tonic::client::Grpc<T>,
     }
     impl SshServiceClient<tonic::transport::Channel> {
-        /// Attempt to create a new client by connecting to a given endpoint.
+        /// Creates a new client by connecting to the specified gRPC endpoint.
+        ///
+        /// Attempts to convert `dst` into a `tonic::transport::Endpoint`, establishes a connection,
+        /// and returns a client instance using that connection.
+        ///
+        /// # Errors
+        ///
+        /// Returns a `tonic::transport::Error` if the endpoint cannot be created or the connection fails.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+        /// let client = YourClient::connect("http://[::1]:50051").await?;
+        /// # Ok(()) }
+        /// ```
         pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
         where
             D: TryInto<tonic::transport::Endpoint>,
@@ -1752,14 +1783,71 @@ pub mod ssh_service_client {
         T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
         <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
     {
+        /// Creates a new client that uses the provided gRPC transport.
+        ///
+        /// # Parameters
+        ///
+        /// - `inner`: the underlying gRPC transport or service to use for requests (for example a `tonic::transport::Channel`).
+        ///
+        /// # Returns
+        ///
+        /// A client instance that uses the provided gRPC transport.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// // establish a channel first (example)
+        /// let channel = tonic::transport::Channel::from_static("http://[::1]:50051")
+        ///     .connect_lazy();
+        /// let client = CommitServiceClient::new(channel);
+        /// ```
         pub fn new(inner: T) -> Self {
             let inner = tonic::client::Grpc::new(inner);
             Self { inner }
         }
+        /// Create a client instance that uses the provided inner service and request origin.
+        ///
+        /// The `origin` is used as the base URI for outgoing requests produced by the client.
+        ///
+        /// # Parameters
+        ///
+        /// - `origin`: Base `Uri` that will be used for all requests from the returned client.
+        ///
+        /// # Returns
+        ///
+        /// A client configured to use the given inner service and origin.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// use tonic::transport::Uri;
+        /// use tonic::transport::Channel;
+        /// // Replace `CommitServiceClient` with the concrete generated client type as needed.
+        /// let channel = Channel::from_static("http://127.0.0.1:50051");
+        /// let origin = Uri::from_static("http://example.com");
+        /// let client = CommitServiceClient::with_origin(channel, origin);
+        /// ```
         pub fn with_origin(inner: T, origin: Uri) -> Self {
             let inner = tonic::client::Grpc::with_origin(inner, origin);
             Self { inner }
         }
+        /// Wraps a gRPC transport with the given interceptor and returns an SshServiceClient that uses it.
+        ///
+        /// The returned client will apply `interceptor` to all outgoing gRPC requests.
+        ///
+        /// # Returns
+        ///
+        /// An `SshServiceClient` that sends requests through the provided transport and applies the interceptor.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// // `inner` must implement the required tonic client service traits (e.g., a `Channel`).
+        /// // `interceptor` must implement `tonic::service::Interceptor`.
+        /// let inner = /* transport implementing the required tonic client service traits */;
+        /// let interceptor = /* an interceptor implementing `tonic::service::Interceptor` */;
+        /// let client = SshServiceClient::with_interceptor(inner, interceptor);
+        /// ```
         pub fn with_interceptor<F>(
             inner: T,
             interceptor: F,
@@ -1779,37 +1867,96 @@ pub mod ssh_service_client {
         {
             SshServiceClient::new(InterceptedService::new(inner, interceptor))
         }
-        /// Compress requests with the given encoding.
+        /// Configure the client to compress outgoing requests using the specified encoding.
         ///
-        /// This requires the server to support it otherwise it might respond with an
-        /// error.
+        /// The server must support the chosen encoding; otherwise requests may fail.
+        ///
+        /// # Parameters
+        ///
+        /// * `encoding` - The compression algorithm to apply to outbound request bodies.
+        ///
+        /// # Returns
+        ///
+        /// A client configured to compress outgoing requests with the given encoding.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// use gitfs::rpc::gitfs::CompressionEncoding;
+        /// // `client` is any generated gRPC client supporting `send_compressed`.
+        /// let client = client.send_compressed(CompressionEncoding::Gzip);
+        /// ```
         #[must_use]
         pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
             self.inner = self.inner.send_compressed(encoding);
             self
         }
-        /// Enable decompressing responses.
+        /// Enable decompressing responses for the client using the given encoding.
+        ///
+        /// The specified `encoding` will be accepted for incoming responses, allowing the client
+        /// to transparently decompress payloads encoded with that compression.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// # use tonic::codec::CompressionEncoding;
+        /// // `client` type varies; show typical chaining usage:
+        /// let client = CommitServiceClient::connect("http://example.com").await.unwrap()
+        ///     .accept_compressed(CompressionEncoding::Gzip);
+        /// ```
         #[must_use]
         pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
             self.inner = self.inner.accept_compressed(encoding);
             self
         }
-        /// Limits the maximum size of a decoded message.
+        /// Set the maximum allowed size (in bytes) for decoded incoming messages.
         ///
-        /// Default: `4MB`
+        /// The default limit is 4 MB. Values larger than this allow decoding of bigger messages;
+        /// smaller values restrict the maximum size accepted.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// // Configure a builder or server to accept messages up to 8 MiB:
+        /// let builder = ServiceBuilder::new().max_decoding_message_size(8 * 1024 * 1024);
+        /// ```
         #[must_use]
         pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
             self.inner = self.inner.max_decoding_message_size(limit);
             self
         }
-        /// Limits the maximum size of an encoded message.
+        /// Sets the maximum allowed size for encoded outgoing messages.
         ///
-        /// Default: `usize::MAX`
+        /// Default: `usize::MAX`.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// let client = crate::commit_service_client::CommitServiceClient::new().max_encoding_message_size(1024);
+        /// ```
         #[must_use]
         pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
             self.inner = self.inner.max_encoding_message_size(limit);
             self
         }
+        /// Sends a request to list SSH public keys for a repository owner.
+        ///
+        /// The `request` specifies which owner's public keys to retrieve.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// # async fn doc() -> Result<(), Box<dyn std::error::Error>> {
+        /// use gitfs::rpc::gitfs::{SshServiceClient, PublicKeyRequest};
+        /// let mut client = SshServiceClient::connect("http://[::1]:50051").await?;
+        /// let req = PublicKeyRequest { owner: "alice".into() };
+        /// let response = client.list_public_keys(req).await?;
+        /// let keys = response.into_inner();
+        /// println!("found {} keys", keys.keys.len());
+        /// # Ok(()) }
+        /// ```
+        -
+        /// @returns A `tonic::Response` wrapping `PublicKeys` containing the owner's public keys.
         pub async fn list_public_keys(
             &mut self,
             request: impl tonic::IntoRequest<super::PublicKeyRequest>,
@@ -1831,6 +1978,39 @@ pub mod ssh_service_client {
                 .insert(GrpcMethod::new("gitfs.SshService", "ListPublicKeys"));
             self.inner.unary(req, path, codec).await
         }
+        /// Inserts a public SSH key for a user.
+        ///
+        /// Sends a `PublicKeyInsertRequest` to the SshService and returns the created `PublicKey`.
+        ///
+        /// # Arguments
+        ///
+        /// * `request` - The request containing the public key to insert.
+        ///
+        /// # Returns
+        ///
+        /// The inserted `PublicKey` on success, or a `tonic::Status` error.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// # async fn doc() -> Result<(), Box<dyn std::error::Error>> {
+        /// use gitfs::ssh_service_client::SshServiceClient;
+        /// use gitfs::{PublicKey, PublicKeyInsertRequest};
+        ///
+        /// let mut client = SshServiceClient::connect("http://[::1]:50051").await?;
+        /// let req = PublicKeyInsertRequest {
+        ///     key: Some(PublicKey {
+        ///         owner: "alice".into(),
+        ///         public_key: "ssh-rsa AAA...".into(),
+        ///         fingerprint: "".into(),
+        ///         created_at: 0,
+        ///         last_used_at: 0,
+        ///     }),
+        /// };
+        /// let response = client.insert_public_key(req).await?;
+        /// let inserted: PublicKey = response.into_inner();
+        /// # Ok(()) }
+        /// ```
         pub async fn insert_public_key(
             &mut self,
             request: impl tonic::IntoRequest<super::PublicKeyInsertRequest>,
@@ -1852,6 +2032,24 @@ pub mod ssh_service_client {
                 .insert(GrpcMethod::new("gitfs.SshService", "InsertPublicKey"));
             self.inner.unary(req, path, codec).await
         }
+        /// Deletes a public SSH key and returns the deleted key.
+        ///
+        /// # Returns
+        ///
+        /// A `tonic::Response<super::PublicKey>` containing the deleted public key.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// # use gitfs::ssh_service_client::SshServiceClient;
+        /// # use gitfs::PublicKeyDeleteRequest;
+        /// # async fn example(mut client: SshServiceClient<tonic::transport::Channel>) -> Result<(), Box<dyn std::error::Error>> {
+        /// let req = PublicKeyDeleteRequest { owner: "alice".into(), fingerprint: "fp-123".into() };
+        /// let response = client.delete_public_key(req).await?;
+        /// let deleted = response.into_inner();
+        /// # Ok(())
+        /// # }
+        /// ```
         pub async fn delete_public_key(
             &mut self,
             request: impl tonic::IntoRequest<super::PublicKeyDeleteRequest>,
@@ -1910,9 +2108,42 @@ pub mod ssh_service_server {
         max_encoding_message_size: Option<usize>,
     }
     impl<T> SshServiceServer<T> {
+        /// Creates a new server that wraps the provided service implementation.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// // `MyServiceImpl` should implement the service trait (e.g., `CommitService`).
+        /// let svc = MyServiceImpl::default();
+        /// let server = CommitServiceServer::new(svc);
+        /// ```
         pub fn new(inner: T) -> Self {
             Self::from_arc(Arc::new(inner))
         }
+        /// Constructs a server that takes shared ownership of the provided service implementation.
+        ///
+        /// The created server uses the given `Arc<T>` as its inner service and initializes
+        /// compression encodings and message size limits to their defaults (no limits).
+        ///
+        /// # Parameters
+        ///
+        /// - `inner`: Shared, reference-counted service implementation to be used by the server.
+        ///
+        /// # Returns
+        ///
+        /// `Self` configured to use the provided service implementation with default compression settings
+        /// and no explicit message size limits.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use std::sync::Arc;
+        ///
+        /// struct MyService;
+        /// // Assume `MyServiceServer<T>` is the generated server type
+        /// let svc = Arc::new(MyService);
+        /// let server = MyServiceServer::from_arc(svc);
+        /// ```
         pub fn from_arc(inner: Arc<T>) -> Self {
             Self {
                 inner,
@@ -1922,6 +2153,19 @@ pub mod ssh_service_server {
                 max_encoding_message_size: None,
             }
         }
+        /// Wraps the service `inner` with an interceptor and returns an intercepted service.
+        ///
+        /// The returned `InterceptedService` will invoke `interceptor` for each request before
+        /// forwarding the request to `inner`.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use tonic::service::Interceptor;
+        /// // Assume `MyService` implements the required service trait and `my_interceptor` implements `Interceptor`.
+        /// let svc = MyService::new();
+        /// let intercepted = MyServiceServer::with_interceptor(svc, my_interceptor);
+        /// ```
         pub fn with_interceptor<F>(
             inner: T,
             interceptor: F,
@@ -1932,29 +2176,69 @@ pub mod ssh_service_server {
             InterceptedService::new(Self::new(inner), interceptor)
         }
         /// Enable decompressing requests with the given encoding.
+        ///
+        /// Allows the server to accept incoming requests that are compressed with `encoding`.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use gitfs::rpc::gitfs::CompressionEncoding;
+        /// // `server` is the service builder returned by the server constructor.
+        /// let server = server.accept_compressed(CompressionEncoding::Gzip);
+        /// ```
         #[must_use]
         pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
             self.accept_compression_encodings.enable(encoding);
             self
         }
-        /// Compress responses with the given encoding, if the client supports it.
+        /// Enable sending responses compressed with the specified encoding when the client
+        /// indicates support for it.
+        ///
+        /// # Returns
+        ///
+        /// `Self` with the specified encoding enabled.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use gitfs::rpc::gitfs::CompressionEncoding;
+        ///
+        /// let svc = MyService::new()
+        ///     .send_compressed(CompressionEncoding::Gzip);
+        /// ```
         #[must_use]
         pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
             self.send_compression_encodings.enable(encoding);
             self
         }
-        /// Limits the maximum size of a decoded message.
+        /// Set the maximum allowed size for decoded messages.
         ///
-        /// Default: `4MB`
-        #[must_use]
+        /// The default limit is 4 MB. The `limit` is interpreted in bytes and replaces any previously set value.
+        ///
+        /// # Arguments
+        ///
+        /// * `limit` - Maximum decoded message size in bytes.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// let svc = ServiceBuilder::new().max_decoding_message_size(8 * 1024 * 1024);
+        /// ```
         pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
             self.max_decoding_message_size = Some(limit);
             self
         }
-        /// Limits the maximum size of an encoded message.
+        /// Sets the maximum allowed size (in bytes) for encoded outgoing messages.
         ///
-        /// Default: `usize::MAX`
-        #[must_use]
+        /// If a message exceeds this limit during encoding, it will be rejected by the client/server layer.
+        /// Default: `usize::MAX`.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// let svc = CommitServiceServer::new(MySvc::default())
+        ///     .max_encoding_message_size(1024 * 1024); // 1 MiB
+        /// ```
         pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
             self.max_encoding_message_size = Some(limit);
             self
@@ -1969,12 +2253,38 @@ pub mod ssh_service_server {
         type Response = http::Response<tonic::body::Body>;
         type Error = std::convert::Infallible;
         type Future = BoxFuture<Self::Response, Self::Error>;
+        /// Always reports the service as ready to accept a request.
+        ///
+        /// # Returns
+        ///
+        /// `Poll::Ready(Ok(()))` indicating the service is ready to accept a request.
         fn poll_ready(
             &mut self,
             _cx: &mut Context<'_>,
         ) -> Poll<std::result::Result<(), Self::Error>> {
             Poll::Ready(Ok(()))
         }
+        /// Dispatches incoming HTTP requests to the appropriate SshService gRPC handlers.
+        ///
+        /// This method matches the request URI path and routes it to the corresponding unary
+        /// RPC implementation (ListPublicKeys, InsertPublicKey, DeletePublicKey). For recognized
+        /// paths it constructs the service wrapper, configures gRPC codec, compression and
+        /// message size limits, and invokes the unary handler. For unknown paths it returns an
+        /// HTTP response with gRPC Unimplemented status.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// // Construct an HTTP request targeting the ListPublicKeys RPC and pass it to the
+        /// // generated service's `call` method. The service will route the request to the
+        /// // SshService::list_public_keys handler.
+        /// let req = http::Request::builder()
+        ///     .uri("/gitfs.SshService/ListPublicKeys")
+        ///     .body(tonic::body::Body::empty())
+        ///     .unwrap();
+        /// // `service` is the generated server type implementing Tower's Service trait.
+        /// // let fut = service.call(req);
+        /// ```
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
                 "/gitfs.SshService/ListPublicKeys" => {
@@ -2135,6 +2445,16 @@ pub mod ssh_service_server {
         }
     }
     impl<T> Clone for SshServiceServer<T> {
+        /// Create a clone of the server preserving its inner service and configuration.
+        ///
+        /// The cloned value shares the same `inner` reference and copies compression and
+        /// message-size settings.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// let server2 = server1.clone();
+        /// ```
         fn clone(&self) -> Self {
             let inner = self.inner.clone();
             Self {
@@ -2207,7 +2527,22 @@ pub mod tree_service_client {
         inner: tonic::client::Grpc<T>,
     }
     impl TreeServiceClient<tonic::transport::Channel> {
-        /// Attempt to create a new client by connecting to a given endpoint.
+        /// Creates a new client by connecting to the specified gRPC endpoint.
+        ///
+        /// Attempts to convert `dst` into a `tonic::transport::Endpoint`, establishes a connection,
+        /// and returns a client instance using that connection.
+        ///
+        /// # Errors
+        ///
+        /// Returns a `tonic::transport::Error` if the endpoint cannot be created or the connection fails.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+        /// let client = YourClient::connect("http://[::1]:50051").await?;
+        /// # Ok(()) }
+        /// ```
         pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
         where
             D: TryInto<tonic::transport::Endpoint>,
@@ -2224,14 +2559,70 @@ pub mod tree_service_client {
         T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
         <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
     {
+        /// Creates a new client that uses the provided gRPC transport.
+        ///
+        /// # Parameters
+        ///
+        /// - `inner`: the underlying gRPC transport or service to use for requests (for example a `tonic::transport::Channel`).
+        ///
+        /// # Returns
+        ///
+        /// A client instance that uses the provided gRPC transport.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// // establish a channel first (example)
+        /// let channel = tonic::transport::Channel::from_static("http://[::1]:50051")
+        ///     .connect_lazy();
+        /// let client = CommitServiceClient::new(channel);
+        /// ```
         pub fn new(inner: T) -> Self {
             let inner = tonic::client::Grpc::new(inner);
             Self { inner }
         }
+        /// Create a client instance that uses the provided inner service and request origin.
+        ///
+        /// The `origin` is used as the base URI for outgoing requests produced by the client.
+        ///
+        /// # Parameters
+        ///
+        /// - `origin`: Base `Uri` that will be used for all requests from the returned client.
+        ///
+        /// # Returns
+        ///
+        /// A client configured to use the given inner service and origin.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// use tonic::transport::Uri;
+        /// use tonic::transport::Channel;
+        /// // Replace `CommitServiceClient` with the concrete generated client type as needed.
+        /// let channel = Channel::from_static("http://127.0.0.1:50051");
+        /// let origin = Uri::from_static("http://example.com");
+        /// let client = CommitServiceClient::with_origin(channel, origin);
+        /// ```
         pub fn with_origin(inner: T, origin: Uri) -> Self {
             let inner = tonic::client::Grpc::with_origin(inner, origin);
             Self { inner }
         }
+        /// Wraps an existing gRPC client with an interceptor and returns a TreeServiceClient using that intercepted service.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use gitfs::tree_service_client::TreeServiceClient;
+        /// use tonic::service::Interceptor;
+        ///
+        /// // `inner` is an existing gRPC client that implements the required traits.
+        /// let inner = /* existing client */;
+        ///
+        /// // Create a simple interceptor that forwards requests unchanged.
+        /// let interceptor = Interceptor::new(|req| Ok(req));
+        ///
+        /// let client = TreeServiceClient::with_interceptor(inner, interceptor);
+        /// ```
         pub fn with_interceptor<F>(
             inner: T,
             interceptor: F,
@@ -2251,37 +2642,117 @@ pub mod tree_service_client {
         {
             TreeServiceClient::new(InterceptedService::new(inner, interceptor))
         }
-        /// Compress requests with the given encoding.
+        /// Configure the client to compress outgoing requests using the specified encoding.
         ///
-        /// This requires the server to support it otherwise it might respond with an
-        /// error.
+        /// The server must support the chosen encoding; otherwise requests may fail.
+        ///
+        /// # Parameters
+        ///
+        /// * `encoding` - The compression algorithm to apply to outbound request bodies.
+        ///
+        /// # Returns
+        ///
+        /// A client configured to compress outgoing requests with the given encoding.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// use gitfs::rpc::gitfs::CompressionEncoding;
+        /// // `client` is any generated gRPC client supporting `send_compressed`.
+        /// let client = client.send_compressed(CompressionEncoding::Gzip);
+        /// ```
         #[must_use]
         pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
             self.inner = self.inner.send_compressed(encoding);
             self
         }
-        /// Enable decompressing responses.
+        /// Enable decompressing responses for the client using the given encoding.
+        ///
+        /// The specified `encoding` will be accepted for incoming responses, allowing the client
+        /// to transparently decompress payloads encoded with that compression.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// # use tonic::codec::CompressionEncoding;
+        /// // `client` type varies; show typical chaining usage:
+        /// let client = CommitServiceClient::connect("http://example.com").await.unwrap()
+        ///     .accept_compressed(CompressionEncoding::Gzip);
+        /// ```
         #[must_use]
         pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
             self.inner = self.inner.accept_compressed(encoding);
             self
         }
-        /// Limits the maximum size of a decoded message.
+        /// Set the maximum allowed size (in bytes) for decoded incoming messages.
         ///
-        /// Default: `4MB`
+        /// The default limit is 4 MB. Values larger than this allow decoding of bigger messages;
+        /// smaller values restrict the maximum size accepted.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// // Configure a builder or server to accept messages up to 8 MiB:
+        /// let builder = ServiceBuilder::new().max_decoding_message_size(8 * 1024 * 1024);
+        /// ```
         #[must_use]
         pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
             self.inner = self.inner.max_decoding_message_size(limit);
             self
         }
-        /// Limits the maximum size of an encoded message.
+        /// Sets the maximum allowed size for encoded outgoing messages.
         ///
-        /// Default: `usize::MAX`
+        /// Default: `usize::MAX`.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// let client = crate::commit_service_client::CommitServiceClient::new().max_encoding_message_size(1024);
+        /// ```
         #[must_use]
         pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
             self.inner = self.inner.max_encoding_message_size(limit);
             self
         }
+        /// Invokes the TreeService `GetCurrentTree` RPC to retrieve the current tree for a repository path.
+        
+        ///
+        
+        /// The `request` must contain repository information and path/revision parameters used to select the tree.
+        
+        ///
+        
+        /// # Examples
+        
+        ///
+        
+        /// ```no_run
+        
+        /// # async fn doc_example(mut client: crate::rpc::tree_service_client::TreeServiceClient<tonic::transport::Channel>) -> Result<(), tonic::Status> {
+        
+        /// use crate::rpc::gitfs::TreeCurrentRequest;
+        
+        /// let req = TreeCurrentRequest {
+        
+        ///     repository: None,
+        
+        ///     path: "/".to_string(),
+        
+        ///     revision: None,
+        
+        ///     refs: "".to_string(),
+        
+        /// };
+        
+        /// let resp = client.get_current_tree(req).await?;
+        
+        /// let tree = resp.into_inner();
+        
+        /// # Ok(())
+        
+        /// # }
+        
+        /// ```
         pub async fn get_current_tree(
             &mut self,
             request: impl tonic::IntoRequest<super::TreeCurrentRequest>,
@@ -2306,6 +2777,25 @@ pub mod tree_service_client {
                 .insert(GrpcMethod::new("gitfs.TreeService", "GetCurrentTree"));
             self.inner.unary(req, path, codec).await
         }
+        /// Request the tree for a specific commit in a repository.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// # async fn doc_example() -> Result<(), Box<dyn std::error::Error>> {
+        /// let mut client = gitfs::tree_service_client::TreeServiceClient::connect("http://[::1]:50051").await?;
+        /// let request = gitfs::CommitTreeRequest {
+        ///     repository: None,
+        ///     commit_hash: "deadbeef".to_string(),
+        ///     path: "".to_string(),
+        /// };
+        /// let response = client.get_commit_tree(request).await?;
+        /// println!("{:#?}", response.into_inner());
+        /// # Ok(())
+        /// # }
+        /// ```
+        ///
+        /// @returns `tonic::Response<super::CommitTreeResponse>` containing the commit tree on success.
         pub async fn get_commit_tree(
             &mut self,
             request: impl tonic::IntoRequest<super::CommitTreeRequest>,
@@ -2369,9 +2859,42 @@ pub mod tree_service_server {
         max_encoding_message_size: Option<usize>,
     }
     impl<T> TreeServiceServer<T> {
+        /// Creates a new server that wraps the provided service implementation.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// // `MyServiceImpl` should implement the service trait (e.g., `CommitService`).
+        /// let svc = MyServiceImpl::default();
+        /// let server = CommitServiceServer::new(svc);
+        /// ```
         pub fn new(inner: T) -> Self {
             Self::from_arc(Arc::new(inner))
         }
+        /// Constructs a server that takes shared ownership of the provided service implementation.
+        ///
+        /// The created server uses the given `Arc<T>` as its inner service and initializes
+        /// compression encodings and message size limits to their defaults (no limits).
+        ///
+        /// # Parameters
+        ///
+        /// - `inner`: Shared, reference-counted service implementation to be used by the server.
+        ///
+        /// # Returns
+        ///
+        /// `Self` configured to use the provided service implementation with default compression settings
+        /// and no explicit message size limits.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use std::sync::Arc;
+        ///
+        /// struct MyService;
+        /// // Assume `MyServiceServer<T>` is the generated server type
+        /// let svc = Arc::new(MyService);
+        /// let server = MyServiceServer::from_arc(svc);
+        /// ```
         pub fn from_arc(inner: Arc<T>) -> Self {
             Self {
                 inner,
@@ -2381,6 +2904,19 @@ pub mod tree_service_server {
                 max_encoding_message_size: None,
             }
         }
+        /// Wraps the service `inner` with an interceptor and returns an intercepted service.
+        ///
+        /// The returned `InterceptedService` will invoke `interceptor` for each request before
+        /// forwarding the request to `inner`.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use tonic::service::Interceptor;
+        /// // Assume `MyService` implements the required service trait and `my_interceptor` implements `Interceptor`.
+        /// let svc = MyService::new();
+        /// let intercepted = MyServiceServer::with_interceptor(svc, my_interceptor);
+        /// ```
         pub fn with_interceptor<F>(
             inner: T,
             interceptor: F,
@@ -2391,29 +2927,69 @@ pub mod tree_service_server {
             InterceptedService::new(Self::new(inner), interceptor)
         }
         /// Enable decompressing requests with the given encoding.
+        ///
+        /// Allows the server to accept incoming requests that are compressed with `encoding`.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use gitfs::rpc::gitfs::CompressionEncoding;
+        /// // `server` is the service builder returned by the server constructor.
+        /// let server = server.accept_compressed(CompressionEncoding::Gzip);
+        /// ```
         #[must_use]
         pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
             self.accept_compression_encodings.enable(encoding);
             self
         }
-        /// Compress responses with the given encoding, if the client supports it.
+        /// Enable sending responses compressed with the specified encoding when the client
+        /// indicates support for it.
+        ///
+        /// # Returns
+        ///
+        /// `Self` with the specified encoding enabled.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use gitfs::rpc::gitfs::CompressionEncoding;
+        ///
+        /// let svc = MyService::new()
+        ///     .send_compressed(CompressionEncoding::Gzip);
+        /// ```
         #[must_use]
         pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
             self.send_compression_encodings.enable(encoding);
             self
         }
-        /// Limits the maximum size of a decoded message.
+        /// Set the maximum allowed size for decoded messages.
         ///
-        /// Default: `4MB`
-        #[must_use]
+        /// The default limit is 4 MB. The `limit` is interpreted in bytes and replaces any previously set value.
+        ///
+        /// # Arguments
+        ///
+        /// * `limit` - Maximum decoded message size in bytes.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// let svc = ServiceBuilder::new().max_decoding_message_size(8 * 1024 * 1024);
+        /// ```
         pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
             self.max_decoding_message_size = Some(limit);
             self
         }
-        /// Limits the maximum size of an encoded message.
+        /// Sets the maximum allowed size (in bytes) for encoded outgoing messages.
         ///
-        /// Default: `usize::MAX`
-        #[must_use]
+        /// If a message exceeds this limit during encoding, it will be rejected by the client/server layer.
+        /// Default: `usize::MAX`.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// let svc = CommitServiceServer::new(MySvc::default())
+        ///     .max_encoding_message_size(1024 * 1024); // 1 MiB
+        /// ```
         pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
             self.max_encoding_message_size = Some(limit);
             self
@@ -2428,12 +3004,34 @@ pub mod tree_service_server {
         type Response = http::Response<tonic::body::Body>;
         type Error = std::convert::Infallible;
         type Future = BoxFuture<Self::Response, Self::Error>;
+        /// Always reports the service as ready to accept a request.
+        ///
+        /// # Returns
+        ///
+        /// `Poll::Ready(Ok(()))` indicating the service is ready to accept a request.
         fn poll_ready(
             &mut self,
             _cx: &mut Context<'_>,
         ) -> Poll<std::result::Result<(), Self::Error>> {
             Poll::Ready(Ok(()))
         }
+        /// Dispatches an incoming HTTP request to the appropriate TreeService RPC handler based on the request URI.
+        ///
+        /// This method matches the request URI and routes to either the `GetCurrentTree` or `GetCommitTree` unary
+        /// RPC implementation; any other path receives an gRPC `Unimplemented` HTTP response.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// // Construct an HTTP request targeting the GetCurrentTree RPC and dispatch it to the service.
+        /// let req = http::Request::builder()
+        ///     .uri("/gitfs.TreeService/GetCurrentTree")
+        ///     .body(tonic::body::BoxBody::empty())
+        ///     .unwrap();
+        /// // `service` is the generated TreeServiceServer instance; calling `service.call(req)` returns the future
+        /// // that resolves to the gRPC response for that RPC.
+        /// // let fut = service.call(req);
+        /// ```
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
                 "/gitfs.TreeService/GetCurrentTree" => {
@@ -2549,6 +3147,16 @@ pub mod tree_service_server {
         }
     }
     impl<T> Clone for TreeServiceServer<T> {
+        /// Create a clone of the server preserving its inner service and configuration.
+        ///
+        /// The cloned value shares the same `inner` reference and copies compression and
+        /// message-size settings.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// let server2 = server1.clone();
+        /// ```
         fn clone(&self) -> Self {
             let inner = self.inner.clone();
             Self {

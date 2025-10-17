@@ -152,6 +152,37 @@ impl ObjectTrait for Tree {
 }
 
 impl Tree {
+    /// Parses raw Git tree object bytes into a Tree and computes its object id using the provided hash version.
+    ///
+    /// Parses a sequence of tree entries from `input`. Each entry is expected in the format:
+    /// `<mode><space><filename><null><20-byte-hash>`. On success returns a `Tree` containing the parsed
+    /// entries and an `id` computed over the canonical "tree <len>\0<data>" form using `hash_version`.
+    ///
+    /// Errors with `GitInnerError::InvalidTreeItem` for malformed input (missing space or null terminator,
+    /// non-UTF-8 filename, truncated hash, or unexpected trailing bytes).
+    ///
+    /// # Parameters
+    /// - `input`: Raw serialized tree object bytes (one or more tree entries concatenated).
+    /// - `hash_version`: Hash algorithm/version used to compute the tree object's id.
+    ///
+    /// # Returns
+    /// `Ok(Tree)` with parsed entries and computed id on success, or `Err(GitInnerError::InvalidTreeItem)` on malformed input.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// // Build a minimal tree entry: mode + space + name + null + 20 zero bytes for the hash.
+    /// let mut data = Vec::new();
+    /// data.extend_from_slice(b"100644 hello.txt\0");
+    /// data.extend_from_slice(&[0u8; 20]);
+    ///
+    /// // `hash_version` should be provided from the crate's HashVersion enum.
+    /// let hash_version = HashVersion::Sha1;
+    /// let tree = parse(Bytes::from(data), hash_version).unwrap();
+    /// assert_eq!(tree.tree_items.len(), 1);
+    /// ```
     pub fn parse(input: Bytes, hash_version: HashVersion) -> Result<Tree, GitInnerError> {
         let mut tree_items = Vec::new();
         let mut pos = 0;
