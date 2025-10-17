@@ -19,6 +19,7 @@ pub mod auth;
 pub mod control;
 pub mod logs;
 pub mod rpc;
+pub mod model;
 
 /// Encode a string as a Git-style pkt-line and return it as a BytesMut buffer.
 ///

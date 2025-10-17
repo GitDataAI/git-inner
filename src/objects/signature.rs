@@ -7,7 +7,7 @@ use std::fmt;
 use std::fmt::{Debug, Display};
 use std::str::FromStr;
 
-#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Decode, Encode)]
+#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Decode, Encode,Hash)]
 pub enum SignatureType {
     Author,
     Committer,
@@ -51,7 +51,7 @@ impl FromStr for SignatureType {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Serialize, Deserialize, Decode, Encode)]
+#[derive(PartialEq, Eq, Clone, Serialize, Deserialize, Decode, Encode,Hash)]
 pub struct Signature {
     pub signature_type: SignatureType,
     pub name: String,

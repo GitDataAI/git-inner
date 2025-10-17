@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 
-#[derive(PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Clone, Serialize, Deserialize,Hash)]
 pub struct Commit {
     pub hash: HashValue,
     pub message: String,
@@ -20,7 +20,7 @@ pub struct Commit {
     pub gpgsig: Option<Gpgsig>,
 }
 
-#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Decode, Encode)]
+#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Decode, Encode,Hash)]
 pub struct Gpgsig {
     pub signature: String,
 }

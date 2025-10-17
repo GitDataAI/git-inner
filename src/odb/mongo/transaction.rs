@@ -3,7 +3,6 @@ use crate::objects::blob::Blob;
 use crate::objects::commit::Commit;
 use crate::objects::tag::Tag;
 use crate::objects::tree::Tree;
-use crate::odb::mongo::{OdbMongoCommit, OdbMongoTag, OdbMongoTree};
 use crate::odb::{Odb, OdbTransaction};
 use crate::sha::HashValue;
 use async_trait::async_trait;
@@ -14,6 +13,9 @@ use object_store::{ObjectStore, PutPayload};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio_stream::StreamExt;
+use crate::model::commit::OdbMongoCommit;
+use crate::model::tag::OdbMongoTag;
+use crate::model::tree::OdbMongoTree;
 
 #[derive(Clone)]
 pub struct OdbMongoTransaction {

@@ -5,6 +5,7 @@ package gitfs;
 message RpcRepository {
   int64 id = 1;
   string uid = 2;
+  string owner = 6;
   string name = 3;
   string namespace = 4;
   bool is_private = 5;

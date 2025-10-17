@@ -2,21 +2,12 @@ use tonic::{Code, Request, Response, Status};
 use crate::error::GitInnerError;
 use crate::rpc::gitfs::{RpcRefs, RpcRefsExchangeDefaultRequest, RpcRefsExchangeDefaultResponse, RpcRefsRequest, RpcRefsResponse};
 use crate::rpc::rpc_repository_to_inner_repository;
+use crate::rpc::service::RpcServiceCore;
 use crate::serve::AppCore;
 
-pub struct RefsService {
-    app: AppCore,
-}
-
-impl RefsService {
-    pub fn init() -> Result<Self, GitInnerError>{
-        let app = AppCore::app()?;
-        Ok(RefsService { app } )
-    }
-}
 
 #[tonic::async_trait]
-impl crate::rpc::gitfs::refs_service_server::RefsService for RefsService {
+impl crate::rpc::gitfs::refs_service_server::RefsService for RpcServiceCore {
     async fn refs(
         &self,
         request: Request<RpcRefsRequest>
@@ -64,6 +55,21 @@ impl crate::rpc::gitfs::refs_service_server::RefsService for RefsService {
         &self,
         request: Request<RpcRefsExchangeDefaultRequest>
     ) -> Result<Response<RpcRefsExchangeDefaultResponse>, Status> {
-        todo!()
+        let inner = request.into_inner();
+        let Some(rpc_repo) = inner
+            .repository else {
+            return Err(Status::new(Code::Unavailable, "Repository not found"));
+        };
+        let repo = rpc_repository_to_inner_repository(self.app.clone(), rpc_repo.clone())
+            .await
+            .map_err(|e| Status::new(Code::Unavailable, format!("Repository not found: {:?}", e)))?;
+        repo
+            .refs
+            .exchange_default_branch(inner.default_branch)
+            .await
+            .map_err(|e| Status::new(Code::Unavailable, format!("Refs error: {:?}", e)))?;
+        Ok(Response::new(RpcRefsExchangeDefaultResponse {
+            refs: None,
+        }))
     }
 }

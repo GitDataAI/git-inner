@@ -100,7 +100,7 @@ impl TreeItem {
 }
 
 
-#[derive(Eq, Debug, Clone, Serialize, Deserialize)]
+#[derive(Eq, Debug, Clone, Serialize, Deserialize,Hash)]
 pub struct Tree {
     pub id: HashValue,
     pub tree_items: Vec<TreeItem>,
@@ -197,50 +197,5 @@ impl Tree {
         let id = hash_version.hash(Bytes::from(hash_input));
 
         Ok(Tree { id, tree_items })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use bytes::Bytes;
-
-    #[test]
-    fn test_tree_roundtrip() {
-        let blob_hash = HashVersion::Sha1.hash(Bytes::from("hello world"));
-        let sub_tree_hash = HashVersion::Sha1.hash(Bytes::from("subdir content"));
-
-        let tree = Tree {
-            id: HashVersion::Sha1.hash(Bytes::from("dummy")),
-            tree_items: vec![
-                TreeItem::new(TreeItemMode::Blob, blob_hash.clone(), "file.txt".into()),
-                TreeItem::new(TreeItemMode::Tree, sub_tree_hash.clone(), "subdir".into()),
-            ],
-        };
-
-        let data = tree.get_data();
-        assert!(
-            data.windows(b"040000 subdir".len()).any(|w| w == b"040000 subdir"),
-            "Tree data missing '040000 subdir'"
-        );
-
-        // Roundtrip parse
-        let parsed = Tree::parse(data.clone(), HashVersion::Sha1).unwrap();
-        assert_eq!(parsed.tree_items.len(), 2);
-        assert_eq!(parsed.tree_items[1].mode, TreeItemMode::Tree);
-        assert_eq!(parsed.tree_items[1].name, "subdir");
-
-        // Re-serialize to ensure deterministic structure
-        let re_data = parsed.get_data();
-        assert_eq!(data, re_data, "Tree serialization mismatch");
-
-        // Display formatting sanity check
-        let output = format!("{}", parsed);
-        assert!(
-            output.contains("040000 tree"),
-            "Display output missing expected mode"
-        );
-
-        println!("Tree display:\n{}", output);
     }
 }

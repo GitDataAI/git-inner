@@ -13,15 +13,23 @@ service RepositoryService {
 }
 
 message RepositoryInitRequest {
+  string uid = 3; // should be uuid
+  string owner = 6; // should be uuid
   string name = 1;
   string namespace = 2;
   bool is_private = 4;
   string default_branch = 5;
+  HashVersion hash_version = 7;
+}
+
+enum HashVersion {
+  HASH_V1 = 0; // sha1
+  HASH_V256 = 1; // sha256
 }
 
 message RepositoryInitResponse {
   int64 id = 1;
-  string uid = 2;
+  string uid = 2; // should be uuid
   string name = 3;
   string namespace = 4;
   bool is_private = 5;

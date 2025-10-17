@@ -45,7 +45,7 @@ serde_json = { version = "1.0.143", features = [] }
 log = { version = "0.4.27", features = [] }
 lazy_static = { version = "1", features = [] }
 toml = { version = "0.9", features = [] }
-
+dashmap = { version = "6.1.0", features = [] }
 tonic = { version = "0.14.1", features = ["server"] }
 prost = { version = "0.14.1", features = ["derive"] }
 tonic-prost = { version = "0.14.1", features = [] }

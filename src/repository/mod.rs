@@ -8,6 +8,7 @@ use uuid::Uuid;
 pub struct Repository {
     pub id: Uuid,
     pub default_branch: String,
+    pub owner: Uuid,
     pub odb: Arc<Box<dyn Odb>>,
     pub refs: Arc<Box<dyn RefsManager>>,
     pub hash_version: HashVersion,
@@ -15,3 +16,7 @@ pub struct Repository {
 }
 
 pub mod refs;
+
+pub mod init;
+pub mod set;
+pub mod info;
