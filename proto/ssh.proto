@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package gitfs;
+
+message PublicKey {
+  string owner = 1; // should is uuid
+  string public_key = 2;
+  string fingerprint = 3;
+  uint64 created_at = 4;
+  uint64 last_used_at = 6;
+}
+
+message PublicKeys {
+  repeated PublicKey keys = 1;
+}
+
+message PublicKeyRequest {
+  string owner = 1;
+}
+
+
+message PublicKeyInsertRequest {
+  PublicKey key = 1;
+}
+
+message PublicKeyDeleteRequest {
+  string owner = 1;
+  string fingerprint = 2;
+}
+
+service SshService {
+  rpc ListPublicKeys(PublicKeyRequest) returns (PublicKeys);
+  rpc InsertPublicKey(PublicKeyInsertRequest) returns (PublicKey);
+  rpc DeletePublicKey(PublicKeyDeleteRequest) returns (PublicKey);
+}
