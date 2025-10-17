@@ -6,6 +6,29 @@ use crate::sha::HashValue;
 
 #[tonic::async_trait]
 impl crate::rpc::gitfs::tree_service_server::TreeService for RpcServiceCore {
+    /// Determine the commit that last modified each entry in the tree at a given repository path for a specified revision or refs.
+    ///
+    /// Given a repository (required) and either an explicit revision hash, a revision string, or refs, this RPC handler:
+    /// - resolves the starting commit,
+    /// - locates the tree at the normalized path,
+    /// - traverses the commit graph backwards to find, for each entry present in the head tree, the most recent commit where that entry was introduced or changed,
+    /// - and returns a TreeCurrentResponse whose items pair each tree entry with the commit that last changed it. If the path or tree does not exist, an empty items list is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use tonic::Request;
+    /// # use crate::rpc::gitfs::TreeCurrentRequest;
+    /// # async fn example(core: &crate::rpc::RpcServiceCore) {
+    /// let req = Request::new(TreeCurrentRequest {
+    ///     repository: None, // fill with a valid RpcRepository in real usage
+    ///     revision: "".to_string(),
+    ///     refs: "refs/heads/main".to_string(),
+    ///     path: "src".to_string(),
+    /// });
+    /// let _res = core.get_current_tree(req).await;
+    /// # }
+    /// ```
     async fn get_current_tree(&self, request: Request<TreeCurrentRequest>) -> Result<Response<TreeCurrentResponse>, Status> {
         let inner = request.into_inner();
         let rpc_repo = inner
@@ -144,6 +167,29 @@ impl crate::rpc::gitfs::tree_service_server::TreeService for RpcServiceCore {
         Ok(Response::new(TreeCurrentResponse { items }))
     }
 
+    /// Resolve the tree at `request.commit_hash` for `request.path` in the given repository and return its RPC representation.
+    ///
+    /// Returns `Some(RpcTree)` when a tree exists at the specified path for the commit, `None` otherwise.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use tonic::Request;
+    /// # use crate::rpc::gitfs::CommitTreeRequest;
+    /// # use crate::rpc::RpcServiceCore;
+    /// # async fn example(svc: &RpcServiceCore) {
+    /// let req = Request::new(CommitTreeRequest {
+    ///     repository: None, // fill with a valid RpcRepository
+    ///     commit_hash: "012345...".into(),
+    ///     path: "src".into(),
+    /// });
+    /// let resp = svc.get_commit_tree(req).await;
+    /// match resp {
+    ///     Ok(r) => println!("tree: {:?}", r.into_inner().tree),
+    ///     Err(e) => eprintln!("error: {:?}", e),
+    /// }
+    /// # }
+    /// ```
     async fn get_commit_tree(&self, request: Request<CommitTreeRequest>) -> Result<Response<CommitTreeResponse>, Status> {
         let inner = request.into_inner();
         let rpc_repo = inner
@@ -183,12 +229,43 @@ impl crate::rpc::gitfs::tree_service_server::TreeService for RpcServiceCore {
     }
 }
 
+/// Normalize a file-system style path for repository tree lookup.
+///
+/// Converts backslashes to forward slashes and removes any leading or trailing slashes,
+/// preserving internal separators. An empty or all-slash input becomes an empty string.
+///
+/// # Examples
+///
+/// ```
+/// assert_eq!(normalize_path(String::from(r"\a\b\c/")), "a/b/c");
+/// assert_eq!(normalize_path(String::from("/")), "");
+/// assert_eq!(normalize_path(String::from("dir/subdir")), "dir/subdir");
+/// ```
 fn normalize_path(path: String) -> String {
     let p = path.replace('\\', "/");
     let p = p.trim_matches('/').to_string();
     p
 }
 
+/// Resolve and return the tree object reachable from `commit` at the given slash-separated `path`.
+///
+/// An empty `path` refers to the commit's root tree. Path segments are matched against tree entries
+/// and must correspond to tree (directory) entries; resolution returns `None` if any segment is missing
+/// or if an intermediate tree object cannot be loaded from the repository object database.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use crate::repository::Repository;
+/// # use crate::objects::commit::Commit;
+/// # async fn example(repo: &Repository, commit: &Commit) {
+/// let tree = resolve_tree_at_path(repo, commit, "src/components").await;
+/// match tree {
+///     Some(t) => { /* found tree at path */ }
+///     None => { /* path not found */ }
+/// }
+/// # }
+/// ```
 async fn resolve_tree_at_path(
     repo: &crate::repository::Repository,
     commit: &Commit,

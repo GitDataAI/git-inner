@@ -82,13 +82,14 @@ pub async fn init_app_by_mongodb() {
 
 #[async_trait]
 impl RepoStore for MongoRepoManager {
-    /// Retrieves repository metadata and constructs a Repository backed by MongoDB and the shared object store.
+    /// Constructs a Repository from MongoDB metadata and the shared object store.
     ///
-    /// On success returns a Repository populated from the MongoDB document for the given `namespace` and `name`.
+    /// Returns a Repository assembled from the MongoDB document matching `namespace` and `name`.
     ///
-    /// Errors:
+    /// # Errors
+    ///
     /// - `GitInnerError::MongodbError` if the MongoDB query fails.
-    /// - `GitInnerError::ObjectNotFound(HashVersion::Sha1.default())` if no repository document matches the query.
+    /// - `GitInnerError::ObjectNotFound(HashVersion::Sha1.default())` if no matching document is found.
     /// - `GitInnerError::HashVersionError` if the stored `hash_version` is unsupported.
     /// - `GitInnerError::UuidError` if the repository UID cannot be converted to a UUID.
     ///
@@ -96,9 +97,9 @@ impl RepoStore for MongoRepoManager {
     ///
     /// ```
     /// # use std::sync::Arc;
-    /// # async fn example_call(manager: &crate::serve::mongo::MongoRepoManager) -> Result<(), crate::error::GitInnerError> {
+    /// # async fn _example(manager: &crate::serve::mongo::MongoRepoManager) -> Result<(), crate::error::GitInnerError> {
     /// let repo = manager.repo("my_namespace".to_string(), "my_repo".to_string()).await?;
-    /// println!("Loaded repo default branch: {}", repo.default_branch);
+    /// assert!(!repo.default_branch.is_empty());
     /// # Ok(())
     /// # }
     /// ```
@@ -146,6 +147,30 @@ impl RepoStore for MongoRepoManager {
         })
     }
 
+    /// Creates a new repository record in the MongoDB `repositories` collection and returns initialization metadata.
+    ///
+    /// On success returns a `RepositoryInitResponse` containing the numeric id, repository uid, name, namespace,
+    /// and `is_private` flag derived from `is_public`. If a MongoDB operation fails, returns `GitInnerError::MongodbError`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Example usage (pseudo-code; replace `manager` with a real MongoRepoManager instance)
+    /// # async fn example(manager: &crate::MongoRepoManager) {
+    /// let resp = manager
+    ///     .create_repo(
+    ///         "namespace".to_string(),
+    ///         "name".to_string(),
+    ///         uuid::Uuid::new_v4(),
+    ///         1,
+    ///         uuid::Uuid::new_v4(),
+    ///         "main".to_string(),
+    ///         true,
+    ///     )
+    ///     .await;
+    /// assert!(resp.is_ok());
+    /// # }
+    /// ```
     async fn create_repo(&self, namespace: String, name: String, owner: uuid::Uuid, hash_version: i32, uid: uuid::Uuid, default_branch: String, is_public: bool) -> Result<RepositoryInitResponse, GitInnerError> {
         let count = self
             .repo
@@ -174,6 +199,20 @@ impl RepoStore for MongoRepoManager {
             is_private: !is_public,
         })
     }
+    /// Sets the repository's visibility flag (`is_public`) for the repository identified by `namespace` and `name`.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` on success, or `Err(GitInnerError::MongodbError(_))` if the update fails.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn example(manager: &crate::MongoRepoManager) -> Result<(), Box<dyn std::error::Error>> {
+    /// manager.set_visibility("my-namespace".into(), "my-repo".into(), true).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn set_visibility(&self, namespace: String, name: String, is_public: bool) -> Result<(), GitInnerError> {
         self.repo
             .update_one(
@@ -191,6 +230,19 @@ impl RepoStore for MongoRepoManager {
             .map_err(|e| GitInnerError::MongodbError(e.to_string()))?;
         Ok(())
     }
+    /// Retrieve RPC-friendly metadata for a repository identified by `namespace` and `name`.
+    ///
+    /// On success returns an `RpcRepository` populated from the stored MongoDB document.
+    /// If the database query fails, a `GitInnerError::MongodbError` is returned.
+    /// If no matching repository is found, a `GitInnerError::ObjectNotFound` with the default SHA-1 hash version is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Async context required (e.g., inside an async test or function).
+    /// // let info = manager.repo_info("my_ns".into(), "my_repo".into()).await.unwrap();
+    /// // assert_eq!(info.name, "my_repo");
+    /// ```
     async fn repo_info(&self, namespace: String, name: String) -> Result<RpcRepository, GitInnerError> {
         let mongo_repo = self
             .repo

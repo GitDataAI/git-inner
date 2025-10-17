@@ -207,6 +207,20 @@ impl RefsManager for MongoRefsManager {
         Ok(result.is_some())
     }
 
+    /// Retrieves the stored hash value for the named reference in this repository.
+    ///
+    /// If the reference does not exist, the function returns `GitInnerError::ObjectNotFound` with the manager's default hash version.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use crate::refs::{MongoRefsManager, HashValue, GitInnerError};
+    /// # tokio_test::block_on(async {
+    /// // assuming `mgr` is a prepared MongoRefsManager and "refs/heads/main" exists
+    /// let value = mgr.get_value_refs("refs/heads/main".to_string()).await.unwrap();
+    /// assert_eq!(value, HashValue::from_hex("0000000000000000000000000000000000000000").unwrap());
+    /// # });
+    /// ```
     async fn get_value_refs(&self, ref_name: String) -> Result<HashValue, GitInnerError> {
         let result = self
             .refs
@@ -222,6 +236,25 @@ impl RefsManager for MongoRefsManager {
             None => Err(GitInnerError::ObjectNotFound(self.hash_version.default())),
         }
     }
+    /// Switches the repository's HEAD to the specified branch, making that branch the new default head.
+    ///
+    /// If the specified branch is already the current default, this is a no-op. If the branch does not
+    /// exist, an `ObjectNotFound` error is returned. Any MongoDB operation failures are returned as
+    /// `GitInnerError::MongodbError`.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` on success, `Err(GitInnerError::ObjectNotFound(_))` if the branch does not exist,
+    /// or `Err(GitInnerError::MongodbError(_))` for MongoDB errors.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # async fn example(manager: &crate::refs::mongo::MongoRefsManager) -> Result<(), crate::error::GitInnerError> {
+    /// manager.exchange_default_branch("main".to_string()).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn exchange_default_branch(&self, branch_name: String) -> Result<(), GitInnerError> {
         if branch_name == self.default_branch {
             return Ok(());

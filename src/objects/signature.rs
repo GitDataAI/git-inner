@@ -41,6 +41,21 @@ impl Display for SignatureType {
 }
 impl FromStr for SignatureType {
     type Err = GitInnerError;
+    /// Parse a signature type from its lowercase ASCII name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::SignatureType;
+    /// use std::str::FromStr;
+    ///
+    /// let t = SignatureType::from_str("author").unwrap();
+    /// assert_eq!(t, SignatureType::Author);
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `GitInnerError::InvalidSignatureType` if `s` is not `"author"`, `"committer"`, or `"tagger"`.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "author" => Ok(SignatureType::Author),
