@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 
-#[derive(PartialEq, Eq, Clone, Serialize, Deserialize,Hash)]
+#[derive(PartialEq, Eq, Clone, Serialize, Deserialize, Hash)]
 pub struct Commit {
     pub hash: HashValue,
     pub message: String,
@@ -20,7 +20,7 @@ pub struct Commit {
     pub gpgsig: Option<Gpgsig>,
 }
 
-#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Decode, Encode,Hash)]
+#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Decode, Encode, Hash)]
 pub struct Gpgsig {
     pub signature: String,
 }
@@ -141,7 +141,7 @@ impl Display for Commit {
             for line in parts {
                 writeln!(f, "{}", line)?;
             }
-            write!(f," \n")?;
+            write!(f, " \n")?;
         }
         writeln!(f)?;
         write!(f, "{}", self.message)
@@ -168,7 +168,6 @@ impl ObjectTrait for Commit {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -181,20 +180,30 @@ mod tests {
              parent ee98d64f596ae42fadf9eeae1d0efa22b14b0829\n\
              author ZhenYi <434836402@qq.com> 1740189120 +0800\n\
              committer ZhenYi <434836402@qq.com> 1740189120 +0800\n\n\
-             build(deps): Update dependencies and replace poem with actix-web\n"
+             build(deps): Update dependencies and replace poem with actix-web\n",
         );
 
         let commit = Commit::parse(commit_data, HashVersion::Sha1).unwrap();
 
-        assert_eq!(commit.tree.as_ref().unwrap().to_string(), "7551d4da2e9c1ae9397c47709253b405fb6b6206");
+        assert_eq!(
+            commit.tree.as_ref().unwrap().to_string(),
+            "7551d4da2e9c1ae9397c47709253b405fb6b6206"
+        );
         assert_eq!(commit.parents.len(), 1);
-        assert_eq!(commit.parents[0].to_string(), "ee98d64f596ae42fadf9eeae1d0efa22b14b0829");
-        assert_eq!(commit.message, "build(deps): Update dependencies and replace poem with actix-web\n");
+        assert_eq!(
+            commit.parents[0].to_string(),
+            "ee98d64f596ae42fadf9eeae1d0efa22b14b0829"
+        );
+        assert_eq!(
+            commit.message,
+            "build(deps): Update dependencies and replace poem with actix-web\n"
+        );
     }
 
     #[test]
     fn test_commit_parse_with_gpg_signature() {
-        let commit_data = Bytes::from(br#"
+        let commit_data = Bytes::from(
+            br#"
 tree 6dc1b8e401ddab32b91a5ea7979affb3fc92d2f8
 parent f1d872891b5a6672183ebd6936dfce09c60d2061
 author taoshengshi <taoshengshi01@gmail.com> 1751768083 +0800
@@ -230,7 +239,9 @@ Feat/doc (#189)
 * change picture alignment
 
 * update image
-"#.to_vec());
+"#
+            .to_vec(),
+        );
 
         let commit = match Commit::parse(commit_data, HashVersion::Sha1) {
             Ok(c) => c,
@@ -250,14 +261,20 @@ Feat/doc (#189)
              parent 2222222222222222222222222222222222222222\n\
              author Test <test@example.com> 1740189120 +0800\n\
              committer Test <test@example.com> 1740189120 +0800\n\n\
-             Merge branch 'main'\n"
+             Merge branch 'main'\n",
         );
 
         let commit = Commit::parse(commit_data, HashVersion::Sha1).unwrap();
 
         assert_eq!(commit.parents.len(), 2);
-        assert_eq!(commit.parents[0].to_string(), "1111111111111111111111111111111111111111");
-        assert_eq!(commit.parents[1].to_string(), "2222222222222222222222222222222222222222");
+        assert_eq!(
+            commit.parents[0].to_string(),
+            "1111111111111111111111111111111111111111"
+        );
+        assert_eq!(
+            commit.parents[1].to_string(),
+            "2222222222222222222222222222222222222222"
+        );
     }
 
     #[test]
@@ -267,7 +284,7 @@ Feat/doc (#189)
              parent ee98d64f596ae42fadf9eeae1d0efa22b14b0829\n\
              author ZhenYi <434836402@qq.com> 1740189120 +0800\n\
              committer ZhenYi <434836402@qq.com> 1740189120 +0800\n\n\
-             build(deps): Update dependencies and replace poem with actix-web\n"
+             build(deps): Update dependencies and replace poem with actix-web\n",
         );
 
         let commit = Commit::parse(commit_data.clone(), HashVersion::Sha1).unwrap();
@@ -275,7 +292,10 @@ Feat/doc (#189)
 
         assert!(displayed.starts_with("tree 7551d4da2e9c1ae9397c47709253b405fb6b6206"));
         assert!(displayed.contains("parent ee98d64f596ae42fadf9eeae1d0efa22b14b0829"));
-        assert!(displayed.ends_with("build(deps): Update dependencies and replace poem with actix-web\n"));
+        assert!(
+            displayed
+                .ends_with("build(deps): Update dependencies and replace poem with actix-web\n")
+        );
     }
 
     #[test]
@@ -285,7 +305,7 @@ Feat/doc (#189)
              parent ee98d64f596ae42fadf9eeae1d0efa22b14b0829\n\
              author ZhenYi <434836402@qq.com> 1740189120 +0800\n\
              committer ZhenYi <434836402@qq.com> 1740189120 +0800\n\n\
-             build(deps): Update dependencies and replace poem with actix-web\n"
+             build(deps): Update dependencies and replace poem with actix-web\n",
         );
 
         let commit = Commit::parse(commit_data.clone(), HashVersion::Sha1).unwrap();
@@ -300,7 +320,7 @@ Feat/doc (#189)
         let invalid_commit_data = Bytes::from(
             "tree 7551d4da2e9c1ae9397c47709253b405fb6b6206\n\
              committer ZhenYi <434836402@qq.com> 1740189120 +0800\n\n\
-             test message\n"
+             test message\n",
         );
 
         let result = Commit::parse(invalid_commit_data, HashVersion::Sha1);
@@ -310,7 +330,7 @@ Feat/doc (#189)
         let invalid_commit_data2 = Bytes::from(
             "tree 7551d4da2e9c1ae9397c47709253b405fb6b6206\n\
              author ZhenYi <434836402@qq.com> 1740189120 +0800\n\n\
-             test message\n"
+             test message\n",
         );
 
         let result2 = Commit::parse(invalid_commit_data2, HashVersion::Sha1);

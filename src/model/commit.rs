@@ -1,9 +1,7 @@
+use crate::objects::commit::Commit;
+use crate::sha::HashValue;
 use mongodb::bson::Uuid;
 use serde::{Deserialize, Serialize};
-use crate::objects::commit::Commit;
-use crate::objects::tag::Tag;
-use crate::objects::tree::Tree;
-use crate::sha::HashValue;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct OdbMongoCommit {
@@ -11,5 +9,3 @@ pub struct OdbMongoCommit {
     pub hash: HashValue,
     pub commit: Commit,
 }
-
-

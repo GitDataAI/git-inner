@@ -1,6 +1,6 @@
 use crate::serve::AppCore;
-use actix_web::web::{scope, Data};
 use actix_web::App;
+use actix_web::web::{Data, scope};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -8,9 +8,8 @@ use std::task::{Context, Poll};
 pub struct HttpServer {
     pub addr: String,
     pub port: u16,
-    pub core: AppCore
+    pub core: AppCore,
 }
-
 
 impl HttpServer {
     /// Creates a new HttpServer configured for the given address and port.
@@ -27,11 +26,7 @@ impl HttpServer {
     /// ```
     pub fn new(addr: String, port: u16) -> Self {
         let core = AppCore::app().expect("App Not Initialized");
-        Self {
-            addr,
-            port,
-            core,
-        }
+        Self { addr, port, core }
     }
     pub fn bind_addr(&self) -> String {
         format!("{}:{}", self.addr, self.port)
@@ -42,18 +37,24 @@ impl HttpServer {
             App::new()
                 .app_data(Data::new(core.clone()))
                 .wrap(actix_web::middleware::Logger::new(
-                    "%a %r %s %b bytes in %D microseconds %{git-protocol}i"
+                    "%a %r %s %b bytes in %D microseconds %{git-protocol}i",
                 ))
                 .service(
                     scope("/{namespace}/{repo_name}.git")
                         .route("/info/refs", actix_web::web::get().to(refs::refs))
-                        .route("/git-receive-pack", actix_web::web::post().to(receive::receive_pack))
-                        .route("/git-upload-pack", actix_web::web::post().to(upload::upload_pack))
+                        .route(
+                            "/git-receive-pack",
+                            actix_web::web::post().to(receive::receive_pack),
+                        )
+                        .route(
+                            "/git-upload-pack",
+                            actix_web::web::post().to(upload::upload_pack),
+                        ),
                 )
         })
-            .bind(self.bind_addr())?
-            .run()
-            .await?;
+        .bind(self.bind_addr())?
+        .run()
+        .await?;
         Ok(())
     }
 }
@@ -69,7 +70,6 @@ impl Future for HttpServer {
     }
 }
 
-
-pub mod refs;
 pub mod receive;
+pub mod refs;
 pub mod upload;

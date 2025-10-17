@@ -1,9 +1,9 @@
 use crate::error::GitInnerError;
+use crate::objects::ObjectTrait;
 use crate::objects::blob::Blob;
 use crate::objects::commit::Commit;
 use crate::objects::tag::Tag;
 use crate::objects::tree::Tree;
-use crate::objects::ObjectTrait;
 use crate::sha::HashValue;
 use crate::transaction::upload::UploadPackTransaction;
 use crate::write_pkt_line;
@@ -12,7 +12,7 @@ use flate2::write::ZlibEncoder;
 use std::collections::HashSet;
 use std::io::Write;
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub enum Object {
     Commit(Commit),
     Tree(Tree),
@@ -66,7 +66,6 @@ impl UploadPackTransaction {
                         stack.push((parent, depth + 1));
                     }
                     objs.push(Object::Commit(commit));
-
                 }
                 Object::Tree(tree) => {
                     for entry in tree.tree_items.clone() {
@@ -82,16 +81,19 @@ impl UploadPackTransaction {
                 }
                 Object::Blob(blob) => {
                     objs.push(Object::Blob(blob));
-
                 }
             }
         }
         Ok(())
     }
 
-    pub async fn send_shallow_info(&self, shallow_commits: &HashSet<HashValue>) -> Result<(), GitInnerError> {
+    pub async fn send_shallow_info(
+        &self,
+        shallow_commits: &HashSet<HashValue>,
+    ) -> Result<(), GitInnerError> {
         for hash in shallow_commits {
-            self.txn.call_back
+            self.txn
+                .call_back
                 .send(write_pkt_line(format!("shallow {}\n", hash)).freeze())
                 .await;
         }
@@ -99,22 +101,13 @@ impl UploadPackTransaction {
     }
 }
 
-
 impl Object {
     pub fn zlib(&self) -> Result<Bytes, GitInnerError> {
         let body = match self {
-            Object::Blob(blob) =>{
-                blob.get_data()
-            },
-            Object::Tree(tree) => {
-                tree.get_data()
-            },
-            Object::Commit(commit) => {
-                commit.get_data()
-            },
-            Object::Tag(tag) => {
-                tag.get_data()
-            },
+            Object::Blob(blob) => blob.get_data(),
+            Object::Tree(tree) => tree.get_data(),
+            Object::Commit(commit) => commit.get_data(),
+            Object::Tag(tag) => tag.get_data(),
         };
 
         let type_code = match self {
@@ -142,10 +135,10 @@ impl Object {
             header.push(byte);
         }
         let mut encoder = ZlibEncoder::new(Vec::new(), flate2::Compression::default());
-        encoder.write_all(&body)
+        encoder
+            .write_all(&body)
             .map_err(|_| GitInnerError::ZlibError)?;
-        let compressed_body = encoder.finish()
-            .map_err(|_| GitInnerError::ZlibError)?;
+        let compressed_body = encoder.finish().map_err(|_| GitInnerError::ZlibError)?;
         let mut result = header;
         result.extend_from_slice(&compressed_body);
 

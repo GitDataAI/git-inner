@@ -1,19 +1,17 @@
 use crate::error::GitInnerError;
+use crate::model::repository::MongoRepository;
 use crate::odb::mongo::odb::OdbMongoObject;
 use crate::refs::mongo::MongoRefsManager;
 use crate::repository::Repository;
-use crate::sha::HashVersion;
-use async_trait::async_trait;
-use mongodb::bson::{Uuid, doc};
-use mongodb::{Client, Collection};
-use object_store::ObjectStore;
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use object_store::local::LocalFileSystem;
-use crate::model::repository::MongoRepository;
 use crate::rpc::gitfs::{RepositoryInitResponse, RpcRepository};
 use crate::serve::{AppCore, RepoStore};
-
+use crate::sha::HashVersion;
+use async_trait::async_trait;
+use mongodb::bson::{doc, Uuid};
+use mongodb::{Client, Collection};
+use object_store::local::LocalFileSystem;
+use object_store::ObjectStore;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct MongoRepoManager {
@@ -67,17 +65,15 @@ impl MongoRepoManager {
 pub async fn init_app_by_mongodb() {
     dotenv::dotenv().ok();
     let mongodb_url = dotenv::var("MONGODB_URL").expect("MONGODB_URL must be set");
-    let store = LocalFileSystem::new_with_prefix("./data")
-        .expect("Failed to initialize local storage");
+    let store =
+        LocalFileSystem::new_with_prefix("./data").expect("Failed to initialize local storage");
     let optional = mongodb::options::ClientOptions::parse(mongodb_url)
         .await
         .expect("Failed to parse MongoDB client options");
-    let mongodb = mongodb::Client::with_options(optional)
-        .expect("Failed to create MongoDB client");
+    let mongodb = mongodb::Client::with_options(optional).expect("Failed to create MongoDB client");
     let manager = MongoRepoManager::new(mongodb, Arc::new(Box::new(store)));
     let core = AppCore::new(Arc::new(Box::new(manager)), None);
     let _ = core.init();
-    
 }
 
 #[async_trait]
@@ -146,7 +142,16 @@ impl RepoStore for MongoRepoManager {
         })
     }
 
-    async fn create_repo(&self, namespace: String, name: String, owner: uuid::Uuid, hash_version: i32, uid: uuid::Uuid, default_branch: String, is_public: bool) -> Result<RepositoryInitResponse, GitInnerError> {
+    async fn create_repo(
+        &self,
+        namespace: String,
+        name: String,
+        owner: uuid::Uuid,
+        hash_version: i32,
+        uid: uuid::Uuid,
+        default_branch: String,
+        is_public: bool,
+    ) -> Result<RepositoryInitResponse, GitInnerError> {
         let count = self
             .repo
             .count_documents(doc! {})
@@ -174,7 +179,12 @@ impl RepoStore for MongoRepoManager {
             is_private: !is_public,
         })
     }
-    async fn set_visibility(&self, namespace: String, name: String, is_public: bool) -> Result<(), GitInnerError> {
+    async fn set_visibility(
+        &self,
+        namespace: String,
+        name: String,
+        is_public: bool,
+    ) -> Result<(), GitInnerError> {
         self.repo
             .update_one(
                 doc! {
@@ -191,7 +201,11 @@ impl RepoStore for MongoRepoManager {
             .map_err(|e| GitInnerError::MongodbError(e.to_string()))?;
         Ok(())
     }
-    async fn repo_info(&self, namespace: String, name: String) -> Result<RpcRepository, GitInnerError> {
+    async fn repo_info(
+        &self,
+        namespace: String,
+        name: String,
+    ) -> Result<RpcRepository, GitInnerError> {
         let mongo_repo = self
             .repo
             .find_one(doc! {
@@ -201,13 +215,13 @@ impl RepoStore for MongoRepoManager {
             .await
             .map_err(|e| GitInnerError::MongodbError(e.to_string()))?
             .ok_or_else(|| GitInnerError::ObjectNotFound(HashVersion::Sha1.default()))?;
-            Ok(RpcRepository {
-                id: mongo_repo.id as i64,
-                uid: mongo_repo.uid.to_string(),
-                owner: mongo_repo.owner.to_string(),
-                name: mongo_repo.name,
-                namespace: mongo_repo.namespace,
-                is_private: !mongo_repo.is_public,
-            })
+        Ok(RpcRepository {
+            id: mongo_repo.id as i64,
+            uid: mongo_repo.uid.to_string(),
+            owner: mongo_repo.owner.to_string(),
+            name: mongo_repo.name,
+            namespace: mongo_repo.namespace,
+            is_private: !mongo_repo.is_public,
+        })
     }
 }

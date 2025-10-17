@@ -1,4 +1,7 @@
 use crate::error::GitInnerError;
+use crate::model::commit::OdbMongoCommit;
+use crate::model::tag::OdbMongoTag;
+use crate::model::tree::OdbMongoTree;
 use crate::objects::blob::Blob;
 use crate::objects::commit::Commit;
 use crate::objects::tag::Tag;
@@ -13,9 +16,6 @@ use object_store::{ObjectStore, PutPayload};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio_stream::StreamExt;
-use crate::model::commit::OdbMongoCommit;
-use crate::model::tag::OdbMongoTag;
-use crate::model::tree::OdbMongoTree;
 
 #[derive(Clone)]
 pub struct OdbMongoTransaction {
@@ -206,17 +206,11 @@ impl Odb for OdbMongoTransaction {
 
     async fn get_blob(&self, hash: &HashValue) -> Result<Blob, GitInnerError> {
         let path = format!("{}/{}", self.repo_uid, hash.to_string());
-        let result = match self
-            .store
-            .get(&Path::from(path))
-            .await{
+        let result = match self.store.get(&Path::from(path)).await {
             Ok(result) => result,
             Err(_) => {
                 let txn_path = format!("{}/txn.{}/{}", self.repo_uid, self.id, hash.to_string());
-                let txn_result = self
-                    .store
-                    .get(&Path::from(txn_path))
-                    .await;
+                let txn_result = self.store.get(&Path::from(txn_path)).await;
                 match txn_result {
                     Ok(result) => result,
                     Err(e) => {
@@ -237,7 +231,7 @@ impl Odb for OdbMongoTransaction {
     async fn has_blob(&self, hash: &HashValue) -> Result<bool, GitInnerError> {
         let path = format!("{}/{}", self.repo_uid, hash.to_string());
         let result = self.store.head(&Path::from(path)).await;
-        let txn_path = format!("{}/txn.{}/{}", self.repo_uid, self.id,hash.to_string());
+        let txn_path = format!("{}/txn.{}/{}", self.repo_uid, self.id, hash.to_string());
         let txn_result = self.store.head(&Path::from(txn_path)).await;
         Ok(result.is_ok() || txn_result.is_ok())
     }

@@ -1,14 +1,13 @@
-use bytes::Bytes;
 use crate::transaction::Transaction;
+use bytes::Bytes;
 
-#[derive(Debug, Clone,PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GitProtoVersion {
     V0 = 0,
     V1 = 1,
     V2 = 2,
     Unknown,
 }
-
 
 impl GitProtoVersion {
     pub fn from_str(s: &str) -> GitProtoVersion {
@@ -46,7 +45,7 @@ impl GitProtoVersion {
 }
 
 impl Transaction {
-    pub async fn write_version(&self)  {
+    pub async fn write_version(&self) {
         let version_str = match self.version {
             GitProtoVersion::V0 => "version 0\n",
             GitProtoVersion::V1 => "version 1\n",
@@ -60,4 +59,3 @@ impl Transaction {
         self.call_back.send(Bytes::from(pkt)).await;
     }
 }
-

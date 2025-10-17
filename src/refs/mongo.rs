@@ -229,8 +229,7 @@ impl RefsManager for MongoRefsManager {
         if !self.exists_refs(branch_name.clone()).await? {
             return Err(GitInnerError::ObjectNotFound(self.hash_version.default()));
         }
-        self
-            .refs
+        self.refs
             .update_many(
                 doc! {
                     "repo_uid": self.repo_uid,
@@ -243,8 +242,7 @@ impl RefsManager for MongoRefsManager {
             )
             .await
             .map_err(|e| GitInnerError::MongodbError(e.to_string()))?;
-        self
-            .refs
+        self.refs
             .update_one(
                 doc! {
                     "repo_uid": self.repo_uid,
@@ -255,7 +253,8 @@ impl RefsManager for MongoRefsManager {
                         "ref_item.is_head": true
                     }
                 },
-            ).await
+            )
+            .await
             .map_err(|e| GitInnerError::MongodbError(e.to_string()))?;
         Ok(())
     }

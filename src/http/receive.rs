@@ -6,7 +6,7 @@ use crate::transaction::TransactionService::ReceivePack;
 use crate::transaction::{GitProtoVersion, ProtocolType, Transaction};
 use actix_web::http::header::Header;
 use actix_web::web::Payload;
-use actix_web::{web, HttpResponse, Responder};
+use actix_web::{HttpResponse, Responder, web};
 use actix_web_httpauth::headers::authorization::{Authorization, Basic};
 use async_stream::stream;
 use std::io;
@@ -47,7 +47,11 @@ pub async fn receive_pack(
     req: actix_web::HttpRequest,
 ) -> impl Responder {
     let (namespace, repo_name) = path.into_inner();
-    let repo = match app.repo_store.repo(namespace.clone(), repo_name.clone()).await {
+    let repo = match app
+        .repo_store
+        .repo(namespace.clone(), repo_name.clone())
+        .await
+    {
         Ok(repo) => repo,
         Err(err) => {
             dbg!(err);
@@ -60,14 +64,14 @@ pub async fn receive_pack(
                 let scheme = basic.into_scheme();
                 let username = scheme.user_id().to_string();
                 let password = scheme.password().unwrap_or("").to_string();
-                match auth.authenticate(&username, &password, &namespace, &repo_name).await {
-                    Ok(level) => {
-                        match level {
-                            AccessLevel::Read =>
-                                return HttpResponse::Forbidden().body("Forbidden"),
-                            _=> {}
-                        }
-                    }
+                match auth
+                    .authenticate(&username, &password, &namespace, &repo_name)
+                    .await
+                {
+                    Ok(level) => match level {
+                        AccessLevel::Read => return HttpResponse::Forbidden().body("Forbidden"),
+                        _ => {}
+                    },
                     Err(_) => {
                         return HttpResponse::Unauthorized()
                             .insert_header(("WWW-Authenticate", r#"Basic realm="Restricted""#))
@@ -92,8 +96,9 @@ pub async fn receive_pack(
     };
     let (tx, rx) = tokio::sync::mpsc::channel(8);
     tokio::task::spawn_local(async move {
-        while let Some(next) = payload.next().await  {
-            tx.send(next.map_err(|err| GitInnerError::Payload(err.to_string()))).await
+        while let Some(next) = payload.next().await {
+            tx.send(next.map_err(|err| GitInnerError::Payload(err.to_string())))
+                .await
                 .ok();
         }
     });

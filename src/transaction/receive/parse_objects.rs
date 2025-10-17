@@ -3,9 +3,9 @@ use crate::objects::commit::Commit;
 use crate::objects::tag::Tag;
 use crate::objects::types::ObjectType;
 use crate::odb::OdbTransaction;
+use crate::sha::HashValue;
 use crate::transaction::Transaction;
 use std::sync::Arc;
-use crate::sha::HashValue;
 
 impl Transaction {
     pub async fn process_object_data(
@@ -15,28 +15,18 @@ impl Transaction {
         txn: Arc<Box<dyn OdbTransaction>>,
     ) -> Result<HashValue, GitInnerError> {
         match object_type {
-            ObjectType::Commit => {
-                self.handle_commit_object(data, txn).await
-            }
-            ObjectType::Tree => {
-                self.handle_tree_object(data, txn).await
-            }
-            ObjectType::Blob => {
-                self.handle_blob_object(data, txn).await
-            }
-            ObjectType::Tag => {
-                self.handle_tag_object(data, txn).await
-            }
-            _ => {
-                Err(GitInnerError::NotSupportVersion)
-            }
+            ObjectType::Commit => self.handle_commit_object(data, txn).await,
+            ObjectType::Tree => self.handle_tree_object(data, txn).await,
+            ObjectType::Blob => self.handle_blob_object(data, txn).await,
+            ObjectType::Tag => self.handle_tag_object(data, txn).await,
+            _ => Err(GitInnerError::NotSupportVersion),
         }
     }
     async fn handle_commit_object(
         &mut self,
         data: &[u8],
         txn: Arc<Box<dyn OdbTransaction>>,
-    )  -> Result<HashValue, GitInnerError>  {
+    ) -> Result<HashValue, GitInnerError> {
         let bytes = bytes::Bytes::from(data.to_vec());
         let commit = Commit::parse(bytes, self.repository.hash_version.clone());
         if let Ok(commit) = commit {

@@ -12,7 +12,7 @@ pub trait Sha {
     fn reset(&mut self);
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug, Eq, PartialEq,Copy)]
+#[derive(Deserialize, Serialize, Clone, Debug, Eq, PartialEq, Copy)]
 pub enum HashVersion {
     Sha1,
     Sha256,
@@ -151,7 +151,6 @@ impl Serialize for HashValue {
     where
         S: serde::Serializer,
     {
-
         match self {
             HashValue::Sha1(sha1) => serializer.serialize_str(&sha1.to_string()),
             HashValue::Sha256(sha256) => serializer.serialize_str(&sha256.to_string()),
@@ -213,8 +212,14 @@ mod tests {
     fn test_hashvalue_from_bytes() {
         let sha1_bytes = BytesMut::from(&[0u8; 20][..]);
         let sha256_bytes = BytesMut::from(&[0u8; 32][..]);
-        assert!(matches!(HashValue::from_bytes(&sha1_bytes), Some(HashValue::Sha1(_))));
-        assert!(matches!(HashValue::from_bytes(&sha256_bytes), Some(HashValue::Sha256(_))));
+        assert!(matches!(
+            HashValue::from_bytes(&sha1_bytes),
+            Some(HashValue::Sha1(_))
+        ));
+        assert!(matches!(
+            HashValue::from_bytes(&sha256_bytes),
+            Some(HashValue::Sha256(_))
+        ));
         let invalid_bytes = BytesMut::from(&[0u8; 10][..]);
         assert!(HashValue::from_bytes(&invalid_bytes).is_none());
     }
@@ -247,8 +252,14 @@ mod tests {
     fn test_hashvalue_from_str() {
         let sha1_str = "0000000000000000000000000000000000000000";
         let sha256_str = "0000000000000000000000000000000000000000000000000000000000000000";
-        assert!(matches!(HashValue::from_str(sha1_str), Some(HashValue::Sha1(_))));
-        assert!(matches!(HashValue::from_str(sha256_str), Some(HashValue::Sha256(_))));
+        assert!(matches!(
+            HashValue::from_str(sha1_str),
+            Some(HashValue::Sha1(_))
+        ));
+        assert!(matches!(
+            HashValue::from_str(sha256_str),
+            Some(HashValue::Sha256(_))
+        ));
         assert!(HashValue::from_str("invalid").is_none());
     }
 

@@ -1,3 +1,6 @@
+use byteorder::{ByteOrder, LittleEndian};
+use chrono::{DateTime, Utc};
+use lru::LruCache;
 use std::collections::BTreeMap;
 use std::fs;
 use std::fs::{File, OpenOptions};
@@ -5,9 +8,6 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use byteorder::{ByteOrder, LittleEndian};
-use lru::LruCache;
-use chrono::{DateTime, Utc};
 
 const MAX_MEM_ENTRIES: usize = 100_000;
 const MAX_DISK_BYTES: u64 = 500 * 1024 * 1024;
@@ -75,13 +75,21 @@ impl LogsStore {
             let len = meta.len();
             let mtime = meta.modified()?;
             total += len;
-            map.insert(mtime, DiskMeta { path, size: len, mtime });
+            map.insert(
+                mtime,
+                DiskMeta {
+                    path,
+                    size: len,
+                    mtime,
+                },
+            );
         }
 
         let store = LogsStore {
             mem: Arc::new(Mutex::new(LruCache::new(
-                std::num::NonZeroUsize::new(MAX_MEM_ENTRIES)
-                    .ok_or_else(|| LogsError::InvalidState("Invalid MAX_MEM_ENTRIES".to_string()))?,
+                std::num::NonZeroUsize::new(MAX_MEM_ENTRIES).ok_or_else(|| {
+                    LogsError::InvalidState("Invalid MAX_MEM_ENTRIES".to_string())
+                })?,
             ))),
             dir,
             disk_files: Arc::new(Mutex::new(map)),
@@ -95,7 +103,9 @@ impl LogsStore {
     }
 
     pub fn put(&self, key: Key, value: Value) -> Result<(), LogsError> {
-        let mut mem = self.mem.lock()
+        let mut mem = self
+            .mem
+            .lock()
             .map_err(|e| LogsError::LockError(format!("Failed to lock mem: {}", e)))?;
 
         if let Some((_, evicted)) = mem.push(key, value) {
@@ -108,7 +118,9 @@ impl LogsStore {
         let now = SystemTime::now();
 
         {
-            let mut curr_ts = self.current_ts.lock()
+            let mut curr_ts = self
+                .current_ts
+                .lock()
                 .map_err(|e| LogsError::LockError(format!("Failed to lock current_ts: {}", e)))?;
             let duration_since = now.duration_since(*curr_ts).unwrap_or_default();
             if duration_since >= Duration::from_secs(60) {
@@ -118,17 +130,23 @@ impl LogsStore {
             }
         }
 
-        let mut writer = self.current.lock()
+        let mut writer = self
+            .current
+            .lock()
             .map_err(|e| LogsError::LockError(format!("Failed to lock writer: {}", e)))?;
-        let mut size = self.current_size.lock()
+        let mut size = self
+            .current_size
+            .lock()
             .map_err(|e| LogsError::LockError(format!("Failed to lock size: {}", e)))?;
 
-        let w = writer.as_mut()
+        let w = writer
+            .as_mut()
             .ok_or_else(|| LogsError::InvalidState("No current writer available".to_string()))?;
 
         // 格式：timestamp(8) + len(4) + payload
         let mut header = [0u8; 12];
-        let ts = now.duration_since(UNIX_EPOCH)
+        let ts = now
+            .duration_since(UNIX_EPOCH)
             .map_err(|e| LogsError::InvalidState(format!("Invalid timestamp: {}", e)))?
             .as_secs();
 
@@ -146,7 +164,9 @@ impl LogsStore {
     fn rotate_file(&self, now: SystemTime) -> Result<(), LogsError> {
         // 先关闭旧文件
         {
-            let mut current = self.current.lock()
+            let mut current = self
+                .current
+                .lock()
                 .map_err(|e| LogsError::LockError(format!("Failed to lock current: {}", e)))?;
             *current = None;
         }
@@ -157,19 +177,20 @@ impl LogsStore {
         };
         let path = self.dir.join(new_name);
 
-        let file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)?;
+        let file = OpenOptions::new().create(true).append(true).open(&path)?;
 
         {
-            let mut current = self.current.lock()
+            let mut current = self
+                .current
+                .lock()
                 .map_err(|e| LogsError::LockError(format!("Failed to lock current: {}", e)))?;
             *current = Some(BufWriter::new(file));
         }
 
         {
-            let mut size = self.current_size.lock()
+            let mut size = self
+                .current_size
+                .lock()
                 .map_err(|e| LogsError::LockError(format!("Failed to lock size: {}", e)))?;
             *size = 0;
         }
@@ -183,7 +204,9 @@ impl LogsStore {
         };
 
         {
-            let mut disk_files = self.disk_files.lock()
+            let mut disk_files = self
+                .disk_files
+                .lock()
                 .map_err(|e| LogsError::LockError(format!("Failed to lock disk_files: {}", e)))?;
             disk_files.insert(now, disk_meta);
         }

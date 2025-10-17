@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
-use std::fmt::Display;
+use crate::sha::{HashValue, HashVersion};
 use bytes::Bytes;
 use bytes::BytesMut;
-use crate::sha::{HashValue, HashVersion};
+use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum ObjectType {

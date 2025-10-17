@@ -2,24 +2,24 @@ use bytes::{BufMut, BytesMut};
 
 pub mod sha;
 
+pub mod auth;
+pub mod callback;
+pub mod capability;
+pub mod config;
+pub mod control;
 pub mod error;
+pub mod hooks;
+pub mod http;
+pub mod logs;
+pub mod model;
 pub mod objects;
 pub mod odb;
 pub mod refs;
-pub mod hooks;
-pub mod callback;
 pub mod repository;
-pub mod transaction;
-pub mod capability;
-pub mod serve;
-pub mod http;
-pub mod ssh;
-pub mod config;
-pub mod auth;
-pub mod control;
-pub mod logs;
 pub mod rpc;
-pub mod model;
+pub mod serve;
+pub mod ssh;
+pub mod transaction;
 
 /// Encode a string as a Git-style pkt-line and return it as a BytesMut buffer.
 ///

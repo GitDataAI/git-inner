@@ -1,6 +1,6 @@
 use crate::error::GitInnerError;
-use crate::objects::types::ObjectType;
 use crate::objects::ObjectTrait;
+use crate::objects::types::ObjectType;
 use crate::sha::{HashValue, HashVersion};
 use bincode::{Decode, Encode};
 use bytes::{Bytes, BytesMut};
@@ -88,9 +88,7 @@ impl TreeItem {
         let raw = self.id.raw();
         let raw_bytes = match raw.len() {
             20 | 32 => raw.clone(),
-            40 | 64 => {
-                hex::decode(raw).expect("invalid hex hash string")
-            }
+            40 | 64 => hex::decode(raw).expect("invalid hex hash string"),
             len => panic!("unexpected hash length: {}", len),
         };
 
@@ -99,8 +97,7 @@ impl TreeItem {
     }
 }
 
-
-#[derive(Eq, Debug, Clone, Serialize, Deserialize,Hash)]
+#[derive(Eq, Debug, Clone, Serialize, Deserialize, Hash)]
 pub struct Tree {
     pub id: HashValue,
     pub tree_items: Vec<TreeItem>,
@@ -169,14 +166,18 @@ impl Tree {
             let null_pos = input[pos..]
                 .iter()
                 .position(|&b| b == b'\0')
-                .ok_or_else(|| GitInnerError::InvalidTreeItem("Missing null after filename".into()))?;
+                .ok_or_else(|| {
+                    GitInnerError::InvalidTreeItem("Missing null after filename".into())
+                })?;
             let name_bytes = &input[pos..pos + null_pos];
             let name = String::from_utf8(name_bytes.to_vec())
                 .map_err(|_| GitInnerError::InvalidTreeItem("Filename not UTF-8".into()))?;
 
             pos += null_pos + 1;
             if pos + 20 > input_len {
-                return Err(GitInnerError::InvalidTreeItem("Tree item hash truncated".into()));
+                return Err(GitInnerError::InvalidTreeItem(
+                    "Tree item hash truncated".into(),
+                ));
             }
             let id = HashValue::from_bytes(&BytesMut::from(&input[pos..pos + 20])).unwrap();
             pos += 20;

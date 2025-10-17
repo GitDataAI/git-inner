@@ -1,26 +1,28 @@
-use tonic::{Code, Request, Response, Status};
-use crate::error::GitInnerError;
-use crate::rpc::gitfs::{RpcRefs, RpcRefsExchangeDefaultRequest, RpcRefsExchangeDefaultResponse, RpcRefsRequest, RpcRefsResponse};
+use crate::rpc::gitfs::{
+    RpcRefs, RpcRefsExchangeDefaultRequest, RpcRefsExchangeDefaultResponse, RpcRefsRequest,
+    RpcRefsResponse,
+};
 use crate::rpc::rpc_repository_to_inner_repository;
 use crate::rpc::service::RpcServiceCore;
-use crate::serve::AppCore;
-
+use tonic::{Code, Request, Response, Status};
 
 #[tonic::async_trait]
 impl crate::rpc::gitfs::refs_service_server::RefsService for RpcServiceCore {
     async fn refs(
         &self,
-        request: Request<RpcRefsRequest>
+        request: Request<RpcRefsRequest>,
     ) -> Result<Response<RpcRefsResponse>, Status> {
         let inner = request.into_inner();
-        let Some(rpc_repo) = inner
-            .repository else {
+        let Some(rpc_repo) = inner.repository else {
             return Err(Status::new(Code::Unavailable, "Repository not found"));
         };
         let repo = rpc_repository_to_inner_repository(self.app.clone(), rpc_repo.clone())
             .await
-            .map_err(|e| Status::new(Code::Unavailable, format!("Repository not found: {:?}", e)))?;
-        let refs = repo.refs
+            .map_err(|e| {
+                Status::new(Code::Unavailable, format!("Repository not found: {:?}", e))
+            })?;
+        let refs = repo
+            .refs
             .refs()
             .await
             .map_err(|e| Status::new(Code::Unavailable, format!("Refs error: {:?}", e)))?;
@@ -31,21 +33,19 @@ impl crate::rpc::gitfs::refs_service_server::RefsService for RpcServiceCore {
             } else if inner.branch && item.is_branch {
                 result.push(item);
             } else {
-                continue
+                continue;
             }
-        };
-        let r  = result
+        }
+        let r = result
             .iter()
-            .map(|x|x.clone())
-            .map(|x| {
-                RpcRefs {
-                    repository: Option::from(rpc_repo.clone()),
-                    name: x.name.clone(),
-                    full_name: x.name.to_string(),
-                    hash: x.value.to_string(),
-                    r#type: 0,
-                    is_default: x.is_head,
-                }
+            .map(|x| x.clone())
+            .map(|x| RpcRefs {
+                repository: Option::from(rpc_repo.clone()),
+                name: x.name.clone(),
+                full_name: x.name.to_string(),
+                hash: x.value.to_string(),
+                r#type: 0,
+                is_default: x.is_head,
             })
             .collect::<Vec<RpcRefs>>();
         Ok(Response::new(RpcRefsResponse { refs: r }))
@@ -53,23 +53,21 @@ impl crate::rpc::gitfs::refs_service_server::RefsService for RpcServiceCore {
 
     async fn refs_exchange_default(
         &self,
-        request: Request<RpcRefsExchangeDefaultRequest>
+        request: Request<RpcRefsExchangeDefaultRequest>,
     ) -> Result<Response<RpcRefsExchangeDefaultResponse>, Status> {
         let inner = request.into_inner();
-        let Some(rpc_repo) = inner
-            .repository else {
+        let Some(rpc_repo) = inner.repository else {
             return Err(Status::new(Code::Unavailable, "Repository not found"));
         };
         let repo = rpc_repository_to_inner_repository(self.app.clone(), rpc_repo.clone())
             .await
-            .map_err(|e| Status::new(Code::Unavailable, format!("Repository not found: {:?}", e)))?;
-        repo
-            .refs
+            .map_err(|e| {
+                Status::new(Code::Unavailable, format!("Repository not found: {:?}", e))
+            })?;
+        repo.refs
             .exchange_default_branch(inner.default_branch)
             .await
             .map_err(|e| Status::new(Code::Unavailable, format!("Refs error: {:?}", e)))?;
-        Ok(Response::new(RpcRefsExchangeDefaultResponse {
-            refs: None,
-        }))
+        Ok(Response::new(RpcRefsExchangeDefaultResponse { refs: None }))
     }
 }

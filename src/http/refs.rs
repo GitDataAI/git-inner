@@ -4,7 +4,7 @@ use crate::serve::AppCore;
 use crate::transaction::{GitProtoVersion, ProtocolType, Transaction, TransactionService};
 use actix_web::http::header::Header;
 use actix_web::web::{Data, Path};
-use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use actix_web::{HttpRequest, HttpResponse, Responder, web};
 use actix_web_httpauth::headers::authorization::{Authorization, Basic};
 use bytes::BytesMut;
 use serde::{Deserialize, Serialize};
@@ -37,7 +37,11 @@ pub async fn refs(
     let (namespace, repo_name) = path.into_inner();
 
     let start = std::time::Instant::now();
-    let repo = match app.repo_store.repo(namespace.clone(), repo_name.clone()).await {
+    let repo = match app
+        .repo_store
+        .repo(namespace.clone(), repo_name.clone())
+        .await
+    {
         Ok(repo) => repo,
         Err(err) => {
             dbg!(err);
@@ -54,15 +58,19 @@ pub async fn refs(
                             let scheme = basic.into_scheme();
                             let username = scheme.user_id().to_string();
                             let password = scheme.password().unwrap_or("").to_string();
-                            match auth.authenticate(&username, &password, &namespace, &repo_name).await {
-                                Ok(level) => {
-                                    match level {
-                                        _=> {}
-                                    }
-                                }
+                            match auth
+                                .authenticate(&username, &password, &namespace, &repo_name)
+                                .await
+                            {
+                                Ok(level) => match level {
+                                    _ => {}
+                                },
                                 Err(_) => {
                                     return HttpResponse::Unauthorized()
-                                        .insert_header(("WWW-Authenticate", r#"Basic realm="Restricted""#))
+                                        .insert_header((
+                                            "WWW-Authenticate",
+                                            r#"Basic realm="Restricted""#,
+                                        ))
                                         .body("Unauthorized");
                                 }
                             }
@@ -81,17 +89,22 @@ pub async fn refs(
                         let scheme = basic.into_scheme();
                         let username = scheme.user_id().to_string();
                         let password = scheme.password().unwrap_or("").to_string();
-                        match auth.authenticate(&username, &password, &namespace, &repo_name).await {
-                            Ok(level) => {
-                                match level {
-                                    AccessLevel::Read =>
-                                        return HttpResponse::Forbidden().body("Forbidden"),
-                                    _=> {}
+                        match auth
+                            .authenticate(&username, &password, &namespace, &repo_name)
+                            .await
+                        {
+                            Ok(level) => match level {
+                                AccessLevel::Read => {
+                                    return HttpResponse::Forbidden().body("Forbidden");
                                 }
-                            }
+                                _ => {}
+                            },
                             Err(_) => {
                                 return HttpResponse::Unauthorized()
-                                    .insert_header(("WWW-Authenticate", r#"Basic realm="Restricted""#))
+                                    .insert_header((
+                                        "WWW-Authenticate",
+                                        r#"Basic realm="Restricted""#,
+                                    ))
                                     .body("Unauthorized");
                             }
                         }
@@ -125,8 +138,7 @@ pub async fn refs(
     };
     match transaction.advertise_refs().await {
         Ok(_) => {}
-        Err(_) => {
-        }
+        Err(_) => {}
     }
     let mut result = BytesMut::new();
     let mut recv = call_back.receive.lock().await;
@@ -143,8 +155,12 @@ pub async fn refs(
         .insert_header((
             "Content-Type",
             match query.service {
-                TransactionService::UploadPack | TransactionService::UploadPackLs=> "application/x-git-upload-pack-advertisement",
-                TransactionService::ReceivePack |  TransactionService::ReceivePackLs=> "application/x-git-receive-pack-advertisement",
+                TransactionService::UploadPack | TransactionService::UploadPackLs => {
+                    "application/x-git-upload-pack-advertisement"
+                }
+                TransactionService::ReceivePack | TransactionService::ReceivePackLs => {
+                    "application/x-git-receive-pack-advertisement"
+                }
             },
         ))
         .body(result.freeze())

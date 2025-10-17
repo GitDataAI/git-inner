@@ -1,5 +1,5 @@
-use mongodb::bson;
 use crate::sha::HashValue;
+use mongodb::bson;
 
 #[derive(Clone, Debug)]
 pub enum GitInnerError {

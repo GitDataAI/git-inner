@@ -35,11 +35,9 @@ impl UploadPackTransaction {
     }
 }
 
-
-
+pub mod advertise_v2;
 pub mod command;
 pub mod encode_pack;
 pub mod recursion;
-pub mod advertise_v2;
 pub mod upload_pack;
 pub mod upload_pack_v2;

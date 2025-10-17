@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize,Serialize,Clone,Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct SshConfig {
     pub enabled: bool,
     pub host: String,
@@ -8,7 +8,6 @@ pub struct SshConfig {
     pub user: String,
     pub server_public_key: Option<String>,
 }
-
 
 impl Default for SshConfig {
     /// Creates the default SSH configuration.

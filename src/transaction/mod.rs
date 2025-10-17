@@ -1,15 +1,13 @@
-pub mod receive;
-pub mod upload;
 pub mod advertise;
+pub mod receive;
 pub mod service;
+pub mod upload;
 pub mod version;
 
-
-use crate::repository::Repository;
 use crate::callback::CallBack;
+use crate::repository::Repository;
 pub(crate) use crate::transaction::service::TransactionService;
 pub(crate) use crate::transaction::version::GitProtoVersion;
-
 
 #[derive(Clone)]
 pub struct Transaction {
@@ -19,7 +17,6 @@ pub struct Transaction {
     pub call_back: CallBack,
     pub protocol: ProtocolType,
 }
-
 
 #[derive(Clone)]
 pub enum ProtocolType {

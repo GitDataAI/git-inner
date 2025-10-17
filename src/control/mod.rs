@@ -1,8 +1,8 @@
+use crate::logs::LogsStore;
 use std::future::Future;
 use std::time::SystemTime;
 use tokio::runtime::Runtime;
 use tokio_metrics::{RuntimeMonitor, TaskMonitor};
-use crate::logs::LogsStore;
 
 pub struct Control {
     pub task_mon: TaskMonitor,
@@ -90,15 +90,16 @@ impl Control {
                 interval.tick().await;
                 let metrics = task_metrics.cumulative();
                 if let Ok(duration) = SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
-                    if let Err(err) = logs.put(
-                        duration.as_secs(),
-                        format!("{:?}", metrics).into_bytes()
-                    ) {
+                    if let Err(err) =
+                        logs.put(duration.as_secs(), format!("{:?}", metrics).into_bytes())
+                    {
                         eprintln!("Failed to log metrics: {}", err);
                     }
                 }
             }
-        }).await.expect("failed to start metrics collection");
+        })
+        .await
+        .expect("failed to start metrics collection");
     }
     /// Shuts down the managed Tokio runtime.
     ///

@@ -1,16 +1,16 @@
-use std::io;
-use actix_web::{web, HttpResponse, Responder};
-use actix_web::http::header::Header;
-use actix_web::web::Payload;
-use actix_web_httpauth::headers::authorization::{Authorization, Basic};
-use async_stream::stream;
-use tokio_stream::StreamExt;
-use tracing::error;
 use crate::callback::CallBack;
 use crate::error::GitInnerError;
 use crate::serve::AppCore;
-use crate::transaction::{GitProtoVersion, ProtocolType, Transaction};
 use crate::transaction::TransactionService::UploadPack;
+use crate::transaction::{GitProtoVersion, ProtocolType, Transaction};
+use actix_web::http::header::Header;
+use actix_web::web::Payload;
+use actix_web::{HttpResponse, Responder, web};
+use actix_web_httpauth::headers::authorization::{Authorization, Basic};
+use async_stream::stream;
+use std::io;
+use tokio_stream::StreamExt;
+use tracing::error;
 
 /// Handle an HTTP Git "upload-pack" request for a repository and stream the Git service response.
 ///
@@ -43,7 +43,11 @@ pub async fn upload_pack(
     req: actix_web::HttpRequest,
 ) -> impl Responder {
     let (namespace, repo_name) = path.into_inner();
-    let repo = match app.repo_store.repo(namespace.clone(), repo_name.clone()).await {
+    let repo = match app
+        .repo_store
+        .repo(namespace.clone(), repo_name.clone())
+        .await
+    {
         Ok(repo) => repo,
         Err(err) => {
             dbg!(err);
@@ -57,12 +61,13 @@ pub async fn upload_pack(
                     let scheme = basic.into_scheme();
                     let username = scheme.user_id().to_string();
                     let password = scheme.password().unwrap_or("").to_string();
-                    match auth.authenticate(&username, &password, &namespace, &repo_name).await {
-                        Ok(level) => {
-                            match level {
-                                _=> {}
-                            }
-                        }
+                    match auth
+                        .authenticate(&username, &password, &namespace, &repo_name)
+                        .await
+                    {
+                        Ok(level) => match level {
+                            _ => {}
+                        },
                         Err(_) => {
                             return HttpResponse::Unauthorized()
                                 .insert_header(("WWW-Authenticate", r#"Basic realm="Restricted""#))
@@ -98,8 +103,9 @@ pub async fn upload_pack(
     };
     let (tx, rx) = tokio::sync::mpsc::channel(8);
     tokio::task::spawn_local(async move {
-        while let Some(next) = payload.next().await  {
-            tx.send(next.map_err(|err| GitInnerError::Payload(err.to_string()))).await
+        while let Some(next) = payload.next().await {
+            tx.send(next.map_err(|err| GitInnerError::Payload(err.to_string())))
+                .await
                 .ok();
         }
     });
@@ -107,8 +113,7 @@ pub async fn upload_pack(
         let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
         let result = transaction.upload_pack(&mut Box::pin(stream)).await;
         match result {
-            Ok(_) => {
-            }
+            Ok(_) => {}
             Err(err) => {
                 error!("Receive pack error: {:?}", err);
             }

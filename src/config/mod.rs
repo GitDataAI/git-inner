@@ -1,14 +1,12 @@
-use std::env::var;
-use serde::{Deserialize, Serialize};
 use crate::config::ssh::SshConfig;
-
+use serde::{Deserialize, Serialize};
+use std::env::var;
 
 lazy_static::lazy_static! {
     pub static ref CFG: AppConfig = AppConfig::load();
 }
 
-
-#[derive(Deserialize,Serialize,Clone,Debug,Default)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
 pub struct AppConfig {
     pub(crate) ssh: SshConfig,
 }
@@ -94,7 +92,5 @@ impl AppConfig {
         &CFG.ssh
     }
 }
-
-
 
 pub mod ssh;

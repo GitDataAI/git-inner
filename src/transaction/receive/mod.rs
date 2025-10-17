@@ -1,16 +1,16 @@
-use std::pin::Pin;
-use std::sync::Arc;
-use bstr::ByteSlice;
-use bytes::{Bytes, BytesMut};
-use futures_util::StreamExt;
-use tokio_stream::Stream;
-use tracing::log::warn;
 use crate::capability::enums::GitCapability;
 use crate::error::GitInnerError;
 use crate::odb::OdbTransaction;
-use crate::transaction::receive::command::ReceiveCommand;
 use crate::transaction::Transaction;
+use crate::transaction::receive::command::ReceiveCommand;
 use crate::transaction::version::GitProtoVersion;
+use bstr::ByteSlice;
+use bytes::{Bytes, BytesMut};
+use futures_util::StreamExt;
+use std::pin::Pin;
+use std::sync::Arc;
+use tokio_stream::Stream;
+use tracing::log::warn;
 
 pub mod command;
 pub mod parse_objects;
@@ -37,7 +37,7 @@ impl Transaction {
             let pack = pack?;
             if pack == "0000" {
                 tokio::task::yield_now().await;
-                continue
+                continue;
             }
             if let Some(idx) = pack.find(b"PACK") {
                 head.extend_from_slice(&pack[..idx]);
@@ -50,7 +50,7 @@ impl Transaction {
             }
         }
         let (refs, caps) = self.parse_receive_request(head).await?;
-        self.parse_receive_head(refs,caps, stream, txn).await?;
+        self.parse_receive_head(refs, caps, stream, txn).await?;
         Ok(())
     }
     pub async fn parse_receive_request(
@@ -135,10 +135,7 @@ impl Transaction {
         match receive_pack_request.version {
             GitProtoVersion::V0 | GitProtoVersion::V1 | GitProtoVersion::V2 => {
                 receive_pack_request
-                    .process_receive_pack(
-                        stream,
-                        Arc::from(txn),
-                    )
+                    .process_receive_pack(stream, Arc::from(txn))
                     .await?;
             }
             GitProtoVersion::Unknown => {

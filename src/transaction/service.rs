@@ -12,8 +12,6 @@ pub enum TransactionService {
     ReceivePackLs,
 }
 
-
-
 impl TransactionService {
     pub fn from_string(s: &str) -> Option<TransactionService> {
         match s {

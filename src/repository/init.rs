@@ -3,7 +3,10 @@ use crate::rpc::gitfs::{RepositoryInitRequest, RepositoryInitResponse};
 use crate::serve::AppCore;
 
 impl AppCore {
-    pub async fn init_repository(&self, req: RepositoryInitRequest) -> Result<RepositoryInitResponse, GitInnerError> {
+    pub async fn init_repository(
+        &self,
+        req: RepositoryInitRequest,
+    ) -> Result<RepositoryInitResponse, GitInnerError> {
         let owner = uuid::Uuid::parse_str(&req.owner).unwrap();
         let uid = uuid::Uuid::parse_str(&req.uid).unwrap();
         self.repo_store
@@ -18,7 +21,7 @@ impl AppCore {
                 },
                 uid,
                 req.default_branch,
-                !req.is_private
+                !req.is_private,
             )
             .await
     }

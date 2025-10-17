@@ -1,5 +1,5 @@
-use crate::transaction::service::TransactionService;
 use crate::transaction::Transaction;
+use crate::transaction::service::TransactionService;
 use bytes::Bytes;
 
 impl Transaction {

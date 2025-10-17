@@ -1,14 +1,18 @@
-use dashmap::DashSet;
-use tonic::{Request, Response, Status};
-use crate::rpc::gitfs::{CommitGetRequest, CommitGetResponse, CommitHeadRequest, CommitHeadResponse, CommitLogRequest, CommitLogResponse, RpcCommit, RpcSignature};
+use crate::rpc::gitfs::{
+    CommitGetRequest, CommitGetResponse, CommitHeadRequest, CommitHeadResponse, CommitLogRequest,
+    CommitLogResponse, RpcCommit, RpcSignature,
+};
 use crate::rpc::rpc_repository_to_inner_repository;
 use crate::rpc::service::RpcServiceCore;
-use crate::serve::AppCore;
 use crate::sha::HashValue;
+use tonic::{Request, Response, Status};
 
 #[tonic::async_trait]
 impl crate::rpc::gitfs::commit_service_server::CommitService for RpcServiceCore {
-    async fn head(&self, request: Request<CommitHeadRequest>) -> Result<Response<CommitHeadResponse>, Status> {
+    async fn head(
+        &self,
+        request: Request<CommitHeadRequest>,
+    ) -> Result<Response<CommitHeadResponse>, Status> {
         let inner = request.into_inner();
         let rpc_repo = inner
             .repository
@@ -40,14 +44,21 @@ impl crate::rpc::gitfs::commit_service_server::CommitService for RpcServiceCore 
                     email: commit.committer.email,
                     time: commit.committer.timestamp as i64,
                 }),
-                parents: commit.parents.iter().map(|x|x.to_string()).collect::<Vec<_>>(),
+                parents: commit
+                    .parents
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>(),
                 tree: commit.tree.map(|x| x.to_string()).unwrap_or_default(),
                 gpgsig: commit.gpgsig.map(|x| x.signature).unwrap_or("".to_string()),
             }),
         }))
     }
 
-    async fn get(&self, request: Request<CommitGetRequest>) -> Result<Response<CommitGetResponse>, Status> {
+    async fn get(
+        &self,
+        request: Request<CommitGetRequest>,
+    ) -> Result<Response<CommitGetResponse>, Status> {
         let inner = request.into_inner();
         let rpc_repo = inner
             .repository
@@ -55,8 +66,8 @@ impl crate::rpc::gitfs::commit_service_server::CommitService for RpcServiceCore 
         let repo = rpc_repository_to_inner_repository(self.app.clone(), rpc_repo)
             .await
             .map_err(|e| Status::internal(format!("failed to get repository: {:?}", e)))?;
-        let hash = HashValue::from_str(&inner.hash)
-            .ok_or(Status::invalid_argument("invalid hash"))?;
+        let hash =
+            HashValue::from_str(&inner.hash).ok_or(Status::invalid_argument("invalid hash"))?;
         let commit = repo
             .odb
             .get_commit(&hash)
@@ -76,14 +87,21 @@ impl crate::rpc::gitfs::commit_service_server::CommitService for RpcServiceCore 
                     email: commit.committer.email,
                     time: commit.committer.timestamp as i64,
                 }),
-                parents: commit.parents.iter().map(|x|x.to_string()).collect::<Vec<_>>(),
+                parents: commit
+                    .parents
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>(),
                 tree: commit.tree.map(|x| x.to_string()).unwrap_or_default(),
                 gpgsig: commit.gpgsig.map(|x| x.signature).unwrap_or("".to_string()),
             }),
         }))
     }
 
-    async fn log(&self, request: Request<CommitLogRequest>) -> Result<Response<CommitLogResponse>, Status> {
+    async fn log(
+        &self,
+        request: Request<CommitLogRequest>,
+    ) -> Result<Response<CommitLogResponse>, Status> {
         let inner = request.into_inner();
         let rpc_repo = inner
             .repository
@@ -126,7 +144,11 @@ impl crate::rpc::gitfs::commit_service_server::CommitService for RpcServiceCore 
                         email: commit.committer.email,
                         time: commit.committer.timestamp as i64,
                     }),
-                    parents: commit.parents.iter().map(|x|x.to_string()).collect::<Vec<_>>(),
+                    parents: commit
+                        .parents
+                        .iter()
+                        .map(|x| x.to_string())
+                        .collect::<Vec<_>>(),
                     tree: commit.tree.map(|x| x.to_string()).unwrap_or_default(),
                     gpgsig: commit.gpgsig.map(|x| x.signature).unwrap_or("".to_string()),
                 });
@@ -141,8 +163,6 @@ impl crate::rpc::gitfs::commit_service_server::CommitService for RpcServiceCore 
                 }
             }
         }
-        Ok(Response::new(CommitLogResponse {
-            commits: result,
-        }))
+        Ok(Response::new(CommitLogResponse { commits: result }))
     }
 }

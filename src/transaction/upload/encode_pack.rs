@@ -1,13 +1,13 @@
 use crate::error::GitInnerError;
 use crate::sha::Sha;
 use crate::transaction::upload::UploadPackTransaction;
-use bytes::{BufMut, Bytes, BytesMut};
-use std::collections::HashSet;
-use tokio::task;
-use std::sync::Arc;
-use bstr::ByteSlice;
 use crate::transaction::upload::recursion::Object;
+use bstr::ByteSlice;
+use bytes::{BufMut, Bytes, BytesMut};
 use log::trace;
+use std::collections::HashSet;
+use std::sync::Arc;
+use tokio::task;
 
 const MAX_PKT_LINE: usize = 0xfff0;
 const MAX_PAYLOAD_PER_PKT: usize = MAX_PKT_LINE - 4 - 1;
@@ -21,10 +21,14 @@ impl UploadPackTransaction {
         let mut objs = Vec::new();
         let mut visited = HashSet::new();
 
-        self.txn.call_back.send_pkt_line(Bytes::from_static(b"packfile\n")).await;
+        self.txn
+            .call_back
+            .send_pkt_line(Bytes::from_static(b"packfile\n"))
+            .await;
 
         for want in &wants {
-            self.recursion_pack_pool_found_iter(&mut objs, &mut visited, want.clone()).await?;
+            self.recursion_pack_pool_found_iter(&mut objs, &mut visited, want.clone())
+                .await?;
         }
 
         if self.sideband {
@@ -32,7 +36,10 @@ impl UploadPackTransaction {
             let pkt = build_sideband_pkt(2, payload.as_bytes());
             self.txn.call_back.send(pkt).await;
         } else {
-            self.txn.call_back.send_pkt_line(Bytes::from(format!("find pack {}\n", objs.len()))).await;
+            self.txn
+                .call_back
+                .send_pkt_line(Bytes::from(format!("find pack {}\n", objs.len())))
+                .await;
         }
 
         if objs.is_empty() {
@@ -49,10 +56,11 @@ impl UploadPackTransaction {
             let mut handles = Vec::new();
             for i in index..(index + concurrency).min(objs_arc.len()) {
                 let o = objs_arc[i].clone();
-                let handle = task::spawn_blocking(move || -> Result<(Object, Bytes), GitInnerError> {
-                    let bytes = o.zlib()?;
-                    Ok((o, bytes))
-                });
+                let handle =
+                    task::spawn_blocking(move || -> Result<(Object, Bytes), GitInnerError> {
+                        let bytes = o.zlib()?;
+                        Ok((o, bytes))
+                    });
                 handles.push(handle);
             }
             for h in handles {
@@ -61,7 +69,9 @@ impl UploadPackTransaction {
                         compressed_list.push((o, b));
                     }
                     Ok(Err(e)) => return Err(e),
-                    Err(e) => return Err(GitInnerError::Other(format!("compress join error: {}", e))),
+                    Err(e) => {
+                        return Err(GitInnerError::Other(format!("compress join error: {}", e)));
+                    }
                 }
             }
             index += concurrency;
@@ -143,15 +153,19 @@ impl UploadPackTransaction {
 
             if self.sideband {
                 let percent = ((pos) * 100 / total).min(100);
-                let progress_payload = format!("pack segment {} progress: {}%\n", pack_idx, percent);
+                let progress_payload =
+                    format!("pack segment {} progress: {}%\n", pack_idx, percent);
                 let pkt = build_sideband_pkt(2, progress_payload.as_bytes());
                 self.txn.call_back.send(pkt).await;
             } else {
-                self.txn.call_back.send_pkt_line(Bytes::from(format!(
-                    "pack segment {} progress: {}%\n",
-                    pack_idx,
-                    (pos * 100 / total)
-                ))).await;
+                self.txn
+                    .call_back
+                    .send_pkt_line(Bytes::from(format!(
+                        "pack segment {} progress: {}%\n",
+                        pack_idx,
+                        (pos * 100 / total)
+                    )))
+                    .await;
             }
 
             any_segment_sent = true;

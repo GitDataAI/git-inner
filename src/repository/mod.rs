@@ -1,7 +1,7 @@
-use std::sync::Arc;
 use crate::odb::Odb;
 use crate::refs::RefsManager;
 use crate::sha::HashVersion;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -17,6 +17,6 @@ pub struct Repository {
 
 pub mod refs;
 
+pub mod info;
 pub mod init;
 pub mod set;
-pub mod info;

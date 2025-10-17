@@ -1,12 +1,12 @@
-use futures_util::StreamExt;
-use std::pin::Pin;
-use bytes::{Buf, Bytes, BytesMut};
-use tokio_stream::wrappers::ReceiverStream;
 use crate::capability::enums::GitCapability;
 use crate::error::GitInnerError;
-use crate::transaction::{GitProtoVersion, Transaction};
-use crate::transaction::upload::command::UploadCommandType;
 use crate::transaction::upload::UploadPackTransaction;
+use crate::transaction::upload::command::UploadCommandType;
+use crate::transaction::{GitProtoVersion, Transaction};
+use bytes::{Buf, Bytes, BytesMut};
+use futures_util::StreamExt;
+use std::pin::Pin;
+use tokio_stream::wrappers::ReceiverStream;
 
 impl Transaction {
     pub async fn upload_pack(
@@ -26,10 +26,12 @@ impl Transaction {
                 if buffer.len() < 4 {
                     break;
                 }
-                let len_str = std::str::from_utf8(&buffer[..4])
-                    .map_err(|_| GitInnerError::ConversionError("Invalid pkt-line length".to_string()))?;
-                let pkt_len = u32::from_str_radix(len_str, 16)
-                    .map_err(|_| GitInnerError::ConversionError("Invalid pkt-line length format".to_string()))?;
+                let len_str = std::str::from_utf8(&buffer[..4]).map_err(|_| {
+                    GitInnerError::ConversionError("Invalid pkt-line length".to_string())
+                })?;
+                let pkt_len = u32::from_str_radix(len_str, 16).map_err(|_| {
+                    GitInnerError::ConversionError("Invalid pkt-line length format".to_string())
+                })?;
 
                 if pkt_len == 0 {
                     commands.push(UploadCommandType::Flush);
@@ -43,13 +45,15 @@ impl Transaction {
 
                 let line_bytes = buffer.split_to(pkt_len as usize);
                 if line_bytes.len() < 4 {
-                    break
+                    break;
                 }
                 let line_str = std::str::from_utf8(&line_bytes[4..])
                     .map_err(|_| GitInnerError::ConversionError("Invalid UTF-8 line".to_string()))?
                     .trim_end();
-                let mut parsed =
-                    UploadCommandType::from_one_line(line_str, self.repository.hash_version.clone())?;
+                let mut parsed = UploadCommandType::from_one_line(
+                    line_str,
+                    self.repository.hash_version.clone(),
+                )?;
                 commands.append(&mut parsed);
             }
         }

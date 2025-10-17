@@ -1,5 +1,5 @@
-use async_trait::async_trait;
 use crate::error::GitInnerError;
+use async_trait::async_trait;
 
 #[async_trait]
 pub trait ProtocolCapability {
@@ -11,6 +11,5 @@ pub trait ProtocolCapability {
         Ok(())
     }
 }
-
 
 pub mod enums;

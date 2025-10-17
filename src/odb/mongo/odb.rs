@@ -1,4 +1,7 @@
 use crate::error::GitInnerError;
+use crate::model::commit::OdbMongoCommit;
+use crate::model::tag::OdbMongoTag;
+use crate::model::tree::OdbMongoTree;
 use crate::objects::blob::Blob;
 use crate::objects::commit::Commit;
 use crate::objects::tag::Tag;
@@ -13,9 +16,6 @@ use object_store::path::Path;
 use object_store::{ObjectStore, PutPayload};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::model::commit::OdbMongoCommit;
-use crate::model::tag::OdbMongoTag;
-use crate::model::tree::OdbMongoTree;
 
 #[derive(Clone)]
 pub struct OdbMongoObject {

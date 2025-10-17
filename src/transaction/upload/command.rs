@@ -25,7 +25,7 @@ pub enum UploadCommandType {
     ObjectFormat(String),
     Peel,
     ThinPack,
-    OfsDelta
+    OfsDelta,
 }
 
 impl UploadCommandType {
@@ -47,9 +47,7 @@ impl UploadCommandType {
 
             let hash_str = parts[0];
             if hash_str.len() < hash_version.len() {
-                return Err(GitInnerError::ConversionError(
-                    "Invalid hash length".into(),
-                ));
+                return Err(GitInnerError::ConversionError("Invalid hash length".into()));
             }
 
             let hash = HashValue::from_str(hash_str)
@@ -84,8 +82,9 @@ impl UploadCommandType {
 
         if line_str.starts_with("shallow ") {
             let hash_str = &line_str[8..];
-            let hash = HashValue::from_str(hash_str)
-                .ok_or(GitInnerError::ConversionError("Invalid shallow hash".into()))?;
+            let hash = HashValue::from_str(hash_str).ok_or(GitInnerError::ConversionError(
+                "Invalid shallow hash".into(),
+            ))?;
             return Ok(vec![UploadCommandType::Shallow(hash)]);
         }
         if line_str.starts_with("deepen ") {

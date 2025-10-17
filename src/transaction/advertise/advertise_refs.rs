@@ -1,5 +1,5 @@
-use bytes::Bytes;
 use crate::transaction::{GitProtoVersion, ProtocolType, Transaction, TransactionService};
+use bytes::Bytes;
 
 impl Transaction {
     pub async fn advertise_refs(&self) -> Result<(), crate::error::GitInnerError> {
@@ -11,7 +11,10 @@ impl Transaction {
             }
         }
         match (&self.service, &self.version) {
-            (TransactionService::UploadPack | TransactionService::UploadPackLs, GitProtoVersion::V2) => {
+            (
+                TransactionService::UploadPack | TransactionService::UploadPackLs,
+                GitProtoVersion::V2,
+            ) => {
                 self.call_back.send(Bytes::from("0000")).await;
                 self.write_version().await;
                 self.write_advertise_v2().await?;

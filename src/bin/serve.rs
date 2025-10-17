@@ -1,12 +1,12 @@
-use log::{error, info};
-use tokio::select;
-use tracing_subscriber::{EnvFilter, Layer};
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
 use git_in::control::Control;
 use git_in::http::HttpServer;
 use git_in::logs::LogsStore;
 use git_in::serve::mongo::init_app_by_mongodb;
+use log::{error, info};
+use tokio::select;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, Layer};
 
 /// Starts the application, sets up logging, initializes components, runs the HTTP server and metrics collection, and handles graceful shutdown.
 ///
@@ -33,7 +33,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .with(fmt_layer)
         .with(console_layer)
         .init();
-
 
     init_app_by_mongodb().await;
     let log_store = LogsStore::new("./logs")?;

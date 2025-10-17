@@ -1,19 +1,19 @@
+use crate::callback::sidebend::{SideBend, bend_pkt_flush};
+use crate::capability::enums::GitCapability;
 use crate::error::GitInnerError;
+use crate::objects::ref_delta::RefDelta;
 use crate::objects::types::ObjectType;
 use crate::odb::OdbTransaction;
-use crate::transaction::receive::zlib_decode::decompress_object_data;
+use crate::sha::HashValue;
 use crate::transaction::receive::ReceivePackTransaction;
+use crate::transaction::receive::zlib_decode::decompress_object_data;
+use crate::write_pkt_line;
 use bytes::{Buf, Bytes, BytesMut};
 use futures_util::Stream;
 use futures_util::StreamExt;
 use std::collections::{BTreeMap, HashMap};
 use std::pin::Pin;
 use std::sync::Arc;
-use crate::callback::sidebend::{bend_pkt_flush, SideBend};
-use crate::capability::enums::GitCapability;
-use crate::objects::ref_delta::RefDelta;
-use crate::sha::HashValue;
-use crate::write_pkt_line;
 
 impl ReceivePackTransaction {
     pub async fn process_receive_pack(
@@ -74,7 +74,10 @@ impl ReceivePackTransaction {
             match object_type {
                 ObjectType::Commit | ObjectType::Tree | ObjectType::Blob | ObjectType::Tag => {
                     let obj_bytes = decompress_object_data(&mut buffer, &mut stream, size).await?;
-                    let hash = self.transaction.process_object_data(object_type, &obj_bytes, txn.clone()).await?;
+                    let hash = self
+                        .transaction
+                        .process_object_data(object_type, &obj_bytes, txn.clone())
+                        .await?;
                     resolved_ofs.insert(obj_start as u64, (hash, obj_bytes, object_type));
                 }
                 ObjectType::OfsDelta => {
@@ -87,17 +90,17 @@ impl ReceivePackTransaction {
                     current_offset += hash_len;
                     let base_hash = HashValue::from_bytes(&base_hash_bytes)
                         .ok_or(GitInnerError::InvalidHash)?;
-                    let delta_bytes = decompress_object_data(&mut buffer, &mut stream, size).await?;
+                    let delta_bytes =
+                        decompress_object_data(&mut buffer, &mut stream, size).await?;
                     ref_delta.insert(obj_start as u64, (base_hash, delta_bytes));
                 }
 
                 ObjectType::Unknown => {
-                    self
-                        .transaction
+                    self.transaction
                         .call_back
-                        .send(
-                            Bytes::from(write_pkt_line("ERR Unsupported object type\n".to_string()))
-                        )
+                        .send(Bytes::from(write_pkt_line(
+                            "ERR Unsupported object type\n".to_string(),
+                        )))
                         .await;
                 }
             }
@@ -107,9 +110,8 @@ impl ReceivePackTransaction {
         let mut unresolved: HashMap<u64, (HashValue, Bytes)> = ref_delta;
         let mut resolved_count = 20;
 
-        let sidebend =
-                self.capabilities.contains(&GitCapability::SideBand) ||
-                self.capabilities.contains(&GitCapability::SideBand64k);
+        let sidebend = self.capabilities.contains(&GitCapability::SideBand)
+            || self.capabilities.contains(&GitCapability::SideBand64k);
         loop {
             resolved_count -= 1;
             if unresolved.is_empty() {
@@ -118,8 +120,13 @@ impl ReceivePackTransaction {
             let mut resolved_in_round = Vec::new();
             let remaining_count = unresolved.len();
             for (obj_start, (base_hash, delta_bytes)) in unresolved.iter() {
-                if let Ok((full_bytes, obj)) = RefDelta::apply_delta(base_hash, delta_bytes, txn.clone(), &resolved_ofs).await {
-                    let hash = self.transaction.process_object_data(obj, &full_bytes, txn.clone()).await?;
+                if let Ok((full_bytes, obj)) =
+                    RefDelta::apply_delta(base_hash, delta_bytes, txn.clone(), &resolved_ofs).await
+                {
+                    let hash = self
+                        .transaction
+                        .process_object_data(obj, &full_bytes, txn.clone())
+                        .await?;
                     resolved_ofs.insert(*obj_start, (hash, full_bytes, obj));
                     resolved_in_round.push(*obj_start);
                 }
@@ -133,19 +140,20 @@ impl ReceivePackTransaction {
             }
             let progress = (ref_total - remaining_count) as f64 * 100.0 / ref_total as f64;
             if sidebend {
-                self
-                    .transaction
+                self.transaction
                     .call_back
-                    .send_side_pkt_line(Bytes::from(format!(
-                        "Progress: {:.2}% ({}/{})\n",
-                        progress,
-                        ref_total - remaining_count + resolved_in_round_count,
-                        ref_total
-                    )), SideBend::SidebandMessage)
+                    .send_side_pkt_line(
+                        Bytes::from(format!(
+                            "Progress: {:.2}% ({}/{})\n",
+                            progress,
+                            ref_total - remaining_count + resolved_in_round_count,
+                            ref_total
+                        )),
+                        SideBend::SidebandMessage,
+                    )
                     .await;
             } else {
-                self
-                    .transaction
+                self.transaction
                     .call_back
                     .send(Bytes::from(write_pkt_line(format!(
                         "Progress: {:.2}% ({}/{})\n",
@@ -162,50 +170,65 @@ impl ReceivePackTransaction {
         if !unresolved.is_empty() {
             return Err(GitInnerError::MissingBaseObject);
         }
-        self
-            .transaction
+        self.transaction
             .call_back
-            .send_side_pkt_line(Bytes::from(write_pkt_line("unpack ok\n".to_string())), SideBend::SidebandPrimary)
+            .send_side_pkt_line(
+                Bytes::from(write_pkt_line("unpack ok\n".to_string())),
+                SideBend::SidebandPrimary,
+            )
             .await;
 
         txn.commit().await?;
         let mut ok = false;
         for idx in self.ref_upload.clone() {
             if idx.is_create() {
-                if self.transaction.repository.refs.create_refs(idx.ref_name.clone(), idx.new).await.is_ok() {
+                if self
+                    .transaction
+                    .repository
+                    .refs
+                    .create_refs(idx.ref_name.clone(), idx.new)
+                    .await
+                    .is_ok()
+                {
                     ok = true;
                 }
             } else if idx.is_update() {
-                if self.transaction.repository.refs.update_refs(idx.ref_name.clone(), idx.new).await.is_ok() {
+                if self
+                    .transaction
+                    .repository
+                    .refs
+                    .update_refs(idx.ref_name.clone(), idx.new)
+                    .await
+                    .is_ok()
+                {
                     ok = true;
                 }
             }
             if ok {
                 if sidebend {
-                    self
-                        .transaction
+                    self.transaction
                         .call_back
-                        .send_side_pkt_line(Bytes::from(write_pkt_line(format!("ok {}\n", idx.ref_name))), SideBend::SidebandPrimary)
+                        .send_side_pkt_line(
+                            Bytes::from(write_pkt_line(format!("ok {}\n", idx.ref_name))),
+                            SideBend::SidebandPrimary,
+                        )
                         .await;
                 } else {
-                    self
-                        .transaction
+                    self.transaction
                         .call_back
-                        .send(Bytes::from(write_pkt_line(format!("ok {}\n", idx.ref_name))))
+                        .send(Bytes::from(write_pkt_line(format!(
+                            "ok {}\n",
+                            idx.ref_name
+                        ))))
                         .await;
                 }
             }
         }
-        self
-            .transaction
+        self.transaction
             .call_back
             .send(bend_pkt_flush().into())
             .await;
-        self
-            .transaction
-            .call_back
-            .send(Bytes::new())
-            .await;
+        self.transaction.call_back.send(Bytes::new()).await;
 
         Ok(())
     }

@@ -1,7 +1,4 @@
-
-
-#[derive(Clone,Debug)]
-#[derive(PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum SideBend {
     SidebandFlush = 0,
     SidebandPrimary = 1,
@@ -40,7 +37,6 @@ pub fn bend_pkt_flush() -> Vec<u8> {
     let head = format!("{:04x}", len).into_bytes();
     head.into_iter().chain(bend.into_iter()).collect()
 }
-
 
 #[cfg(test)]
 mod tests {

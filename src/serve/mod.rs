@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use crate::auth::Auth;
 use crate::error::GitInnerError;
 use crate::repository::Repository;
+use crate::rpc::gitfs::{RepositoryInitResponse, RpcRepository};
 use async_trait::async_trait;
+use std::sync::Arc;
 use tokio::sync::OnceCell;
 use uuid::Uuid;
-use crate::auth::Auth;
-use crate::rpc::gitfs::{RepositoryInitResponse, RpcRepository};
 
 pub static APP: OnceCell<AppCore> = OnceCell::const_new();
 
@@ -16,13 +16,30 @@ pub struct AppCore {
 }
 
 #[async_trait]
-pub trait RepoStore:Send + Sync + 'static  {
+pub trait RepoStore: Send + Sync + 'static {
     async fn repo(&self, namespace: String, name: String) -> Result<Repository, GitInnerError>;
-    async fn create_repo(&self, namespace: String, name: String, owner: Uuid, hash_version: i32, uid: Uuid, default_branch: String, is_public: bool) -> Result<RepositoryInitResponse, GitInnerError>;
-    async fn set_visibility(&self, namespace: String, name: String, is_public: bool) -> Result<(), GitInnerError>;
-    async fn repo_info(&self, namespace: String, name: String) -> Result<RpcRepository, GitInnerError>;
+    async fn create_repo(
+        &self,
+        namespace: String,
+        name: String,
+        owner: Uuid,
+        hash_version: i32,
+        uid: Uuid,
+        default_branch: String,
+        is_public: bool,
+    ) -> Result<RepositoryInitResponse, GitInnerError>;
+    async fn set_visibility(
+        &self,
+        namespace: String,
+        name: String,
+        is_public: bool,
+    ) -> Result<(), GitInnerError>;
+    async fn repo_info(
+        &self,
+        namespace: String,
+        name: String,
+    ) -> Result<RpcRepository, GitInnerError>;
 }
-
 
 impl AppCore {
     /// Create a new AppCore containing the given repository store and optional auth component.
@@ -69,7 +86,8 @@ impl AppCore {
     /// app.init().expect("failed to initialize global app");
     /// ```
     pub fn init(&self) -> Result<(), GitInnerError> {
-        APP.set(self.clone()).map_err(|_| GitInnerError::AppInitError)
+        APP.set(self.clone())
+            .map_err(|_| GitInnerError::AppInitError)
     }
     /// Retrieve the globally initialized AppCore instance.
     ///

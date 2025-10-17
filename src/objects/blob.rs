@@ -42,8 +42,11 @@ impl Blob {
         let mut hash = version.default();
         hash.update(format!("blob {}\0", input.len()).as_bytes());
         hash.update(&input);
-         hash.finalize();
-        Blob { id: hash, data: input }
+        hash.finalize();
+        Blob {
+            id: hash,
+            data: input,
+        }
     }
 }
 
