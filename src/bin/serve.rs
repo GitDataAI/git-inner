@@ -1,7 +1,10 @@
+use git_in::config::rpc::RpcConfig;
 use git_in::control::Control;
 use git_in::http::HttpServer;
 use git_in::logs::LogsStore;
+use git_in::rpc::service::RpcServiceCore;
 use git_in::serve::mongo::init_app_by_mongodb;
+use git_in::serve::AppCore;
 use log::{error, info};
 use tokio::select;
 use tracing_subscriber::layer::SubscriberExt;
@@ -44,6 +47,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             info!("HTTP server exited.");
         }
     });
+    let rpc_handle = control.spawn(async move {
+        RpcServiceCore::new(AppCore::app().expect("Failed to create AppCore"))
+            .run(RpcConfig {
+                url: "0.0.0.0".to_string(),
+                port: 3001,
+            })
+            .await
+            .expect("Failed to run RPC service");
+    });
     let collection = control.start_metrics_collection();
     select! {
         _ = http_handle => {
@@ -51,6 +63,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
         _ = collection => {
             info!("Metrics logs server task completed.");
+        }
+        _ = rpc_handle => {
+            info!("RPC server task completed.");
         }
         _ = tokio::signal::ctrl_c() => {
             control.stop().await;

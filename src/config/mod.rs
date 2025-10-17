@@ -11,6 +11,8 @@ pub struct AppConfig {
     pub(crate) ssh: SshConfig,
 }
 
+pub mod rpc;
+
 impl AppConfig {
     /// Loads the application configuration from the configured file or the default path.
     ///
