@@ -222,4 +222,41 @@ impl RefsManager for MongoRefsManager {
             None => Err(GitInnerError::ObjectNotFound(self.hash_version.default())),
         }
     }
+    async fn exchange_default_branch(&self, branch_name: String) -> Result<(), GitInnerError> {
+        if branch_name == self.default_branch {
+            return Ok(());
+        }
+        if !self.exists_refs(branch_name.clone()).await? {
+            return Err(GitInnerError::ObjectNotFound(self.hash_version.default()));
+        }
+        self
+            .refs
+            .update_many(
+                doc! {
+                    "repo_uid": self.repo_uid,
+                },
+                doc! {
+                    "$set": {
+                        "ref_item.is_head": false
+                    }
+                },
+            )
+            .await
+            .map_err(|e| GitInnerError::MongodbError(e.to_string()))?;
+        self
+            .refs
+            .update_one(
+                doc! {
+                    "repo_uid": self.repo_uid,
+                    "ref_item.name": branch_name
+                },
+                doc! {
+                    "$set": {
+                        "ref_item.is_head": true
+                    }
+                },
+            ).await
+            .map_err(|e| GitInnerError::MongodbError(e.to_string()))?;
+        Ok(())
+    }
 }

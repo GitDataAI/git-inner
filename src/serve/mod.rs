@@ -3,7 +3,9 @@ use crate::error::GitInnerError;
 use crate::repository::Repository;
 use async_trait::async_trait;
 use tokio::sync::OnceCell;
+use uuid::Uuid;
 use crate::auth::Auth;
+use crate::rpc::gitfs::{RepositoryInitResponse, RpcRepository};
 
 pub static APP: OnceCell<AppCore> = OnceCell::const_new();
 
@@ -16,6 +18,9 @@ pub struct AppCore {
 #[async_trait]
 pub trait RepoStore:Send + Sync + 'static  {
     async fn repo(&self, namespace: String, name: String) -> Result<Repository, GitInnerError>;
+    async fn create_repo(&self, namespace: String, name: String, owner: Uuid, hash_version: i32, uid: Uuid, default_branch: String, is_public: bool) -> Result<RepositoryInitResponse, GitInnerError>;
+    async fn set_visibility(&self, namespace: String, name: String, is_public: bool) -> Result<(), GitInnerError>;
+    async fn repo_info(&self, namespace: String, name: String) -> Result<RpcRepository, GitInnerError>;
 }
 
 

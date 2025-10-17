@@ -23,6 +23,7 @@ pub trait RefsManager: Send + Sync {
     async fn get_refs(&self, ref_name: String) -> Result<RefItem, GitInnerError>;
     async fn exists_refs(&self, ref_name: String) -> Result<bool, GitInnerError>;
     async fn get_value_refs(&self, ref_name: String) -> Result<HashValue, GitInnerError>;
+    async fn exchange_default_branch(&self, branch_name: String) -> Result<(), GitInnerError>;
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
