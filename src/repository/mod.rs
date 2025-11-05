@@ -16,7 +16,3 @@ pub struct Repository {
 }
 
 pub mod refs;
-
-pub mod info;
-pub mod init;
-pub mod set;
