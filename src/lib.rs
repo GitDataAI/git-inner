@@ -16,7 +16,7 @@ pub mod objects;
 pub mod odb;
 pub mod refs;
 pub mod repository;
-pub mod rpc;
+pub mod rest;
 pub mod serve;
 pub mod ssh;
 pub mod transaction;
