@@ -11,7 +11,12 @@ pub struct AppConfig {
     pub(crate) ssh: SshConfig,
 }
 
+pub mod auth;
+pub mod logger;
 pub mod rpc;
+pub mod socket;
+pub mod ssh;
+pub mod tls;
 
 impl AppConfig {
     /// Loads the application configuration from the configured file or the default path.
@@ -94,5 +99,3 @@ impl AppConfig {
         &CFG.ssh
     }
 }
-
-pub mod ssh;
